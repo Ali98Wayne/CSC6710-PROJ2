@@ -17,7 +17,7 @@ app.use(express.urlencoded({extended: false}));
 // Serve the frontend by manually defining the Frontend folder path
 app.use(express.static(path.join(__dirname, '../Frontend')));
 
-// add new user
+// Register a new user
 app.post('/addUser', (request, response) => {
     const { username, password, first_name, last_name, address, address_city, address_state, address_zip, phone, 
                 email, card_num, card_month, card_year, card_cvv } = request.body;
@@ -46,6 +46,7 @@ app.post("/loginUser", (request, response) => {
       .catch(err => console.log(err));
 });
 
+// Submit the service request, leaving the notes & photo_links
 app.post("/addServiceRequest", async (request, response) => {
     const { username, requestAddress, requestAddressCity, requestAddressState, requestAddressZip, requestCleaningType,
     requestRoomAmount, requestDateTime, requestBudget, requestNotes, photo_urls } = request.body;
@@ -54,7 +55,7 @@ app.post("/addServiceRequest", async (request, response) => {
     const result = db.insertNewRequest(
         username, requestAddress, requestAddressCity, requestAddressState, requestAddressZip, requestCleaningType,
         requestRoomAmount, requestDateTime, requestBudget, requestNotes, Array.isArray(photo_urls) ? photo_urls : JSON.parse(photo_urls || "[]")
-    );
+    ); // If photo_links is empty, pass it as an empty array
 
     result
       .then(data => response.json(data))

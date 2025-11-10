@@ -112,6 +112,7 @@ class DbService{
     async insertNewRequest(username, service_address, service_address_city, service_address_state, service_address_zip, 
     cleaning_type, num_rooms, preferred_datetime, proposed_budget, notes, photo_urls) {
         try {
+            // Query to get the user_id from the currently logged in user
             const client_id = await new Promise((resolve, reject) => {
                 const getUserIdQuery = "SELECT user_id FROM users WHERE username = ?";
                 connection.query(getUserIdQuery, [username], (err, results) => {
@@ -121,6 +122,7 @@ class DbService{
                 });
             });
             
+            // Query to process the service request, the client_id is equal to the user_id
             const requestResult = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO request_cleaning

@@ -1,8 +1,10 @@
 document.addEventListener("DOMContentLoaded", function() {
     const inputFields = document.querySelectorAll("input");
     inputFields.forEach(input => input.value = ""); // Clear all input fields on page reload
-    document.getElementById('signup-creditcard-month').selectedIndex = 0; // Set the default month to January on page reload
-    document.getElementById('signup-address-state').selectedIndex = 0; // Set the default month to January on page reload
+    document.getElementById('signup-creditcard-month').selectedIndex = 0; // Set the default credit card month to January on page reload
+    document.getElementById('signup-address-state').selectedIndex = 0; // Set the default signup state option on page reload
+    document.getElementById('service-address-state').selectedIndex = 0; // Set the default service state option on page reload
+    document.getElementById('cleaning-type').selectedIndex = 0; // Set the default cleaning type to Basic on page reload
 
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
@@ -116,6 +118,12 @@ document.addEventListener("DOMContentLoaded", function() {
         e.target.value = input;
     });
 
+    document.getElementById('service-address-zip').addEventListener('input', function(e) {
+        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
+        if (input.length > 5) input = input.substring(0, 5); // Limit to 5 digits
+        e.target.value = input;
+    });
+
     document.getElementById('room-amount').addEventListener('input', function(e) {
         let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
         e.target.value = input;
@@ -150,6 +158,9 @@ document.addEventListener("DOMContentLoaded", function() {
             profileSection.style.display = "none"; // Hide the profile section
             serviceRequest.style.display = "none" // Hide the service request when not logged in
             inputFields.forEach(input => input.value = ""); // Clear all input fields when not logged in
+            photoFields.innerHTML = ''; // Remove all added photo fields
+            photoNum = 0; // Reset counter
+            addPhotoButton.style.display = 'inline-block'; // Show the Add Photo button again
         }
     }
 
@@ -208,8 +219,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
     const addPhotoButton = document.getElementById('add-photo-button');
     const photoFields = document.getElementById('photo-fields');
-    let photoNum = 0;
-    const photosMax = 5;
+    let photoNum = 0; // Keeps track of how many photo link fields are on the service request page
+    const photosMax = 5; // Up to 5 photo link fields can be added
 
     addPhotoButton.addEventListener('click', function() {
         if (photoNum < photosMax) {
@@ -262,7 +273,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const submitRequestButton = document.querySelector('#submit-button');
 
     submitRequestButton.addEventListener('click', function() {
-        const username = localStorage.getItem("loggedInUser");
+        const username = localStorage.getItem("loggedInUser"); // Get the username from the currently logged in user, to match the service request user_id to
         const requestAddress = document.querySelector('#service-address').value.trim();
         const requestAddressCity = document.querySelector('#service-address-city').value.trim();
         const requestAddressState = document.querySelector('#service-address-state').value.trim();
@@ -272,7 +283,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const requestDateTime = document.querySelector('#preferred-date-time').value.trim();
         const requestBudget = document.querySelector('#proposed-budget').value.trim();
         const requestNotes = document.querySelector('#notes')?.value.trim() || null;
-        const photo_urls = Array.from(document.querySelectorAll('.photo-field input')).map(inp => inp.value.trim())
+        const photo_urls = Array.from(document.querySelectorAll('.photo-field input')).map(inp => inp.value.trim()) // An array for storing optional photo links
 
         if (!requestAddress || !requestAddressCity || !requestAddressState || !requestAddressZip || 
             !requestCleaningType || !requestRoomAmount || !requestDateTime || !requestBudget) {
@@ -284,7 +295,7 @@ document.addEventListener("DOMContentLoaded", function() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, requestAddress, requestAddressCity, requestAddressState, requestAddressZip, requestCleaningType,
-                requestRoomAmount, requestDateTime, requestBudget, requestNotes, photo_urls : photo_urls ? JSON.stringify(photo_urls) : null})
+                requestRoomAmount, requestDateTime, requestBudget, requestNotes, photo_urls : photo_urls ? JSON.stringify(photo_urls) : null}) // Stringify photo_urls if it exists, otherwise pass it as a null value
         })
         .then(response => response.json())
         .then(data => {
@@ -294,10 +305,14 @@ document.addEventListener("DOMContentLoaded", function() {
                 document.querySelector("#service-address-city").value = "";
                 document.querySelector("#service-address-state").value = "";
                 document.querySelector("#service-address-zip").value = "";
+                document.getElementById('cleaning-type').selectedIndex = 0; // Set the default cleaning type to Basic
                 document.querySelector("#room-amount").value = "";
                 document.querySelector("#preferred-date-time").value = "";
                 document.querySelector("#proposed-budget").value = "";
                 document.querySelector("#notes").value = "";
+                photoFields.innerHTML = ''; // Remove all added photo fields
+                photoNum = 0; // Reset counter
+                addPhotoButton.style.display = 'inline-block'; // Show the Add Photo button again
             } else alert("Error: " + (data.error || "Unknown error"));
         })
         .catch(err => console.error("Request Service Error:", err));
