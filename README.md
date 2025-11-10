@@ -1,7 +1,7 @@
-CSC 6710 - Project 2 (Fall 2025)
-We consider the design of a database-driven website for managing home-cleaning services for a contractor, Anna Johnson.
+# CSC 6710/DSE 6100 - Fall 2025 - Project 2<br>
+* We consider the design of a database-driven website for managing home-cleaning services for a contractor, Anna Johnson.
 
-The workflow is as follows:
+## The workflow is as follows:
 1.	Service Request Submission
 2.	Quote & Negotiation
 3.	Service Order & Completion
@@ -18,3 +18,9 @@ Workload for this project:
 8.	Overdue bills – List all unpaid bills older than one week.
 9.	Bad clients – List clients who never paid any overdue bill.
 10.	Good clients – List clients who always paid their bills within 24 hours of being generated.
+
+## Steps to run the code:
+1. Open a VSCode terminal
+2. Run `cd Backend` in the "CSC6710-PROJ2" directory
+3. Run `npm start`
+4. Access the website in "http://127.0.0.1:5050/"
