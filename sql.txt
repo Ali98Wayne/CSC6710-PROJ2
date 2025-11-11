@@ -35,6 +35,8 @@ CREATE TABLE Request_Cleaning(
    notes TEXT NULL,
    request_date DATE DEFAULT CURRENT_DATE,
    quote_accept_date DATE,
+   bill_status ENUM('Paid', 'Unpaid'),
+   bill_due_date DATE,
    FOREIGN KEY (client_id) REFERENCES Users(user_id)
 )
 

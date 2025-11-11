@@ -38,7 +38,6 @@ app.post('/addUser', (request, response) => {
 app.post("/loginUser", (request, response) => {
     const { username, password } = request.body;
     const db = dbService.getDbServiceInstance();
-
     const result = db.loginUser(username, password);
 
     result
@@ -60,6 +59,44 @@ app.post("/addServiceRequest", async (request, response) => {
     result
       .then(data => response.json(data))
       .catch(err => console.log(err));
+});
+
+// Search users that have the most service orders. "request" is unused, must be a parameter so "response" isn't mistaken for a request and throws an error
+app.get('/mostServiceOrders', (request, response) => {
+    const db = dbService.getDbServiceInstance();
+    const result =  db.mostServiceOrders(); 
+
+    result
+    .then(data => response.json({data: data}))
+    .catch(err => console.log(err));
+});
+
+app.get('/monthQuotes', (request, response) => {
+    const {quoteAcceptMonth} = request.query;
+    const db = dbService.getDbServiceInstance();
+    const result =  db.acceptedMonthQuotes(quoteAcceptMonth); 
+
+    result
+    .then(data => response.json({data: data}))
+    .catch(err => console.log(err));
+});
+
+app.get('/largestJob', (request, response) => {
+    const db = dbService.getDbServiceInstance();
+    const result =  db.largestJob(); 
+
+    result
+    .then(data => response.json({data: data}))
+    .catch(err => console.log(err));
+});
+
+app.get('/badClients', (request, response) => {
+    const db = dbService.getDbServiceInstance();
+    const result =  db.badClients(); 
+
+    result
+    .then(data => response.json({data: data}))
+    .catch(err => console.log(err));
 });
 
 // Listen on the fixed port: 5050

@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById('signup-address-state').selectedIndex = 0; // Set the default signup state option on page reload
     document.getElementById('service-address-state').selectedIndex = 0; // Set the default service state option on page reload
     document.getElementById('cleaning-type').selectedIndex = 0; // Set the default cleaning type to Basic on page reload
+    document.getElementById('monthQuotes').selectedIndex = 0; // Set the default quote search month to January on page reload
 
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
@@ -146,6 +147,9 @@ document.addEventListener("DOMContentLoaded", function() {
         const profileSection = document.querySelector("#profile-section");
         const profileName = document.querySelector("#profile-name");
         const serviceRequest = document.querySelector("#service-request");
+        const queriesSection = document.querySelector("#queries-section");
+        const queryResults = document.querySelector("#query-results");
+        const queryBody = document.querySelector('#query-results tbody');
 
         if (currentUser) {
             authSection.style.display = "none"; // Hide Sign Up & Login sections when logged in
@@ -153,6 +157,9 @@ document.addEventListener("DOMContentLoaded", function() {
             profileName.textContent = currentUser; // Set the profile name in the profile section to the logged in username
             logoutBtn.style.display = "none"; // Hide the logout button by default when logged in
             serviceRequest.style.display = "block"; // Show the service request when logged in
+            queriesSection.style.display = "block"; // Show the queries section
+            queryResults.style.display = "none"; // Hide the query results table, until a query is made
+            if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on login
         } else {
             authSection.style.display = "block"; // Show Sign Up & Login section when not logged in
             profileSection.style.display = "none"; // Hide the profile section
@@ -161,6 +168,9 @@ document.addEventListener("DOMContentLoaded", function() {
             photoFields.innerHTML = ''; // Remove all added photo fields
             photoNum = 0; // Reset counter
             addPhotoButton.style.display = 'inline-block'; // Show the Add Photo button again
+            queriesSection.style.display = "none"; // Hide the queries section
+            queryResults.style.display = "none"; // Hide the query results table
+            if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on sign out
         }
     }
 
@@ -318,3 +328,81 @@ document.addEventListener("DOMContentLoaded", function() {
         .catch(err => console.error("Request Service Error:", err));
     });
 });
+
+// Most service orders search
+const mostServiceOrdersBtn =  document.querySelector('#most-service-orders-btn');
+mostServiceOrdersBtn.onclick = function () {
+    fetch('http://localhost:5050/mostServiceOrders')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['client_id', 'username', 'first_name', 'last_name', 'total_requests']))
+    .catch(err => console.error("Most Service Orders search error:", err));
+}
+
+// Accepted quotes in a given month search
+const monthQuotesBtn =  document.querySelector('#month-quotes-search-btn');
+monthQuotesBtn.onclick = function () {
+    const month = document.querySelector('#monthQuotes').value;
+    fetch(`http://localhost:5050/monthQuotes?month=${month}`)
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['request_id', 'client_id', 'username', 'quote_accept_date']))
+    .catch(err => console.error("Most Service Orders search error:", err));
+}
+
+// Largest job, most rooms, search
+const largestJobBtn =  document.querySelector('#largest-job-search-btn');
+largestJobBtn.onclick = function () {
+    fetch('http://localhost:5050/largestJob')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['request_id', 'client_id', 'username', 'rooms']))
+    .catch(err => console.error("Most Service Orders search error:", err));
+}
+
+// Bad clients search
+const badClientsBtn =  document.querySelector('#bad-clients-search-btn');
+badClientsBtn.onclick = function () {
+    fetch('http://localhost:5050/badClients')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['client_id', 'username', 'first_name', 'last_name']))
+    .catch(err => console.error("Most Service Orders search error:", err));
+}
+
+// Function for showing query results in a table that differs in what columns are shown
+function searchResultsTable(query_data, columnsToShow = []) {
+    const queryResults = document.querySelector("#query-results");
+    const queryTableHead = document.querySelector('#query-results thead'); 
+    const queryTableBody = document.querySelector('#query-results tbody');
+
+    // Show the query results table, the idea is to only show when any of the search buttons (that call this function) are clicked
+    queryResults.style.display = "table";
+
+    // Prevent leftover columns from a previous query from appearing in a query with no results
+    queryTableHead.innerHTML = "";
+    queryTableBody.innerHTML = "";
+
+    // If the query does not have a result, indicate this through HTML text
+    if (!query_data || query_data.length === 0) {
+        queryTableBody.innerHTML = "<h2>No results for the query</h2>";
+        return;
+    }
+
+    // Build query search results table header
+    queryTableHead.innerHTML = `
+    <tr>${columnsToShow.map(col => `<th>${col}</th>`).join('')}</tr>`; // Array of HTML column name strings is joined into a single string without commas
+
+    // Build query search results table body
+    // Array of HTML row result strings is joined into a single string without commas
+    queryTableBody.innerHTML = query_data.map(row => `
+    <tr>
+        ${columnsToShow.map(col => { // Nested mapping of HTML column results
+            let value = row[col]; // Set row results of each column
+            if (col === 'signup_date' && value)
+                // Format signup_date as MM/DD/YYYY
+                value = new Date(value).toLocaleDateString();
+            if (col === 'last_login')
+                // Ternary operation to format last_login as "MM/DD/YYYY, HH:MM:SS AM/PM" for users that have signed in or "NULL" if not
+                value = value ? new Date(value).toLocaleString() : 'NULL';
+            return `<td>${value}</td>`; // Return a mapped row result of a mapped column
+        }).join('')}
+    </tr>
+    `).join('');
+}

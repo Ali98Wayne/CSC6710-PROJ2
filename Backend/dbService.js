@@ -155,6 +155,124 @@ class DbService{
             throw err;
         }
     }
+
+     async mostServiceOrders(){
+        try{
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `
+                        SELECT
+                        Users.user_id AS client_id,
+                        Users.username,
+                        Users.first_name,
+                        Users.last_name,
+                        COUNT(Request_Cleaning.request_id) AS total_requests
+                        FROM Request_Cleaning
+                        JOIN Users ON Request_Cleaning.client_id = Users.user_id
+                        GROUP BY Users.user_id
+                        ORDER BY total_requests DESC
+                        LIMIT 10;
+                     `;
+                     connection.query(query, (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+             return response;
+
+         } catch(err) {
+            throw err;
+        }
+    }
+
+    async acceptedMonthQuotes(month){
+        try{
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `
+                        SELECT 
+                        r.request_id,
+                        u.user_id AS client_id,
+                        u.username,
+                        u.first_name,
+                        u.last_name,
+                        r.quote_accept_date
+                        FROM Request_Cleaning r
+                        JOIN Users u ON r.client_id = u.user_id
+                        WHERE MONTH(r.quote_accept_date) = ? 
+                        ORDER BY r.quote_accept_date DESC;
+                     `;
+                     connection.query(query, [month], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+             return response;
+
+         } catch(err) {
+            throw err;
+        }
+    }
+
+    async largestJob(){
+        try{
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `
+                        SELECT 
+                        r.request_id,
+                        u.user_id AS client_id,
+                        u.username,
+                        u.first_name,
+                        u.last_name,
+                        r.rooms
+                        FROM Request_Cleaning r
+                        JOIN Users u ON r.client_id = u.user_id
+                        ORDER BY r.rooms DESC
+                        LIMIT 10;
+                     `;
+                     connection.query(query, (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+             return response;
+
+         } catch(err) {
+            throw err;
+        }
+    }
+
+    async badClients(){
+        try{
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `
+                        SELECT DISTINCT
+                        u.user_id AS client_id,
+                        u.username,
+                        u.first_name,
+                        u.last_name
+                        FROM Users u
+                        JOIN Request_Cleaning r ON u.user_id = r.client_id
+                        WHERE r.bill_status = 'Unpaid'
+                        AND r.bill_due_date < (CURDATE() - INTERVAL 7 DAY);
+                     `;
+                     connection.query(query, (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+             return response;
+
+         } catch(err) {
+            throw err;
+        }
+    }
 }
 
 module.exports = DbService;
