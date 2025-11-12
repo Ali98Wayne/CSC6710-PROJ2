@@ -6,6 +6,10 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById('service-address-state').selectedIndex = 0; // Set the default service state option on page reload
     document.getElementById('cleaning-type').selectedIndex = 0; // Set the default cleaning type to Basic on page reload
     document.getElementById('monthQuotes').selectedIndex = 0; // Set the default quote search month to January on page reload
+    const addPhotoButton = document.getElementById('add-photo-button');
+    const photoFields = document.getElementById('photo-fields');
+    let photoNum = 0; // Keeps track of how many photo link fields are on the service request page
+    const photosMax = 5; // Up to 5 photo link fields can be added
 
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
@@ -140,7 +144,20 @@ document.addEventListener("DOMContentLoaded", function() {
     const profileToggle = document.querySelector("#profile-toggle");
     const logoutBtn = document.querySelector("#logout-btn");
 
-    // Show/hide the profile section based on user login status, hide logout button by default
+    let isAnnaUser = false; // Variable for knowing if the DB USER is Anna Johnson, false by default
+
+    fetch('http://localhost:5050/userInfo')
+    .then(res => res.json())
+    .then(data => {
+        isAnnaUser = data.isAnna;
+        updateUI(); // Run after fetching DB USER info
+    })
+    .catch(err => {
+        console.error('Error fetching user info:', err);
+        updateUI();
+    });
+
+    // Show/hide the profile section based on user login status, hide logout button by default, only show the queries section for Anna Johnson
     function updateUI() {
         const currentUser = localStorage.getItem("loggedInUser");
         const authSection = document.querySelector("#auth-section");
@@ -157,10 +174,15 @@ document.addEventListener("DOMContentLoaded", function() {
             profileName.textContent = currentUser; // Set the profile name in the profile section to the logged in username
             logoutBtn.style.display = "none"; // Hide the logout button by default when logged in
             serviceRequest.style.display = "block"; // Show the service request when logged in
-            queriesSection.style.display = "block"; // Show the queries section
+            queriesSection.style.display = "none"; // Show the queries section
             queryResults.style.display = "none"; // Hide the query results table, until a query is made
             if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on login
-        } else {
+        } else if (isAnnaUser) {
+            authSection.style.display = "none"; // Hide Sign Up & Login sections if Anna Johnson is the DB USER
+            serviceRequest.style.display = "none" // Hide the service request if Anna Johnson is the DB USER
+            queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB USER
+        }
+        else {
             authSection.style.display = "block"; // Show Sign Up & Login section when not logged in
             profileSection.style.display = "none"; // Hide the profile section
             serviceRequest.style.display = "none" // Hide the service request when not logged in
@@ -226,11 +248,6 @@ document.addEventListener("DOMContentLoaded", function() {
         localStorage.removeItem("loggedInUser");
         updateUI();
     });
-
-    const addPhotoButton = document.getElementById('add-photo-button');
-    const photoFields = document.getElementById('photo-fields');
-    let photoNum = 0; // Keeps track of how many photo link fields are on the service request page
-    const photosMax = 5; // Up to 5 photo link fields can be added
 
     addPhotoButton.addEventListener('click', function() {
         if (photoNum < photosMax) {

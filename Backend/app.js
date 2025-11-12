@@ -71,6 +71,7 @@ app.get('/mostServiceOrders', (request, response) => {
     .catch(err => console.log(err));
 });
 
+// Search for the most quotes in a month
 app.get('/monthQuotes', (request, response) => {
     const {quoteAcceptMonth} = request.query;
     const db = dbService.getDbServiceInstance();
@@ -81,6 +82,7 @@ app.get('/monthQuotes', (request, response) => {
     .catch(err => console.log(err));
 });
 
+// Search for the most rooms in a job
 app.get('/largestJob', (request, response) => {
     const db = dbService.getDbServiceInstance();
     const result =  db.largestJob(); 
@@ -90,6 +92,7 @@ app.get('/largestJob', (request, response) => {
     .catch(err => console.log(err));
 });
 
+// Search for clients that processed quotes but haven't paid their bill
 app.get('/badClients', (request, response) => {
     const db = dbService.getDbServiceInstance();
     const result =  db.badClients(); 
@@ -97,6 +100,14 @@ app.get('/badClients', (request, response) => {
     result
     .then(data => response.json({data: data}))
     .catch(err => console.log(err));
+});
+
+// Fetch the current DB USER
+app.get('/userInfo', (req, res) => {
+    res.json({
+        dbUser: process.env.DB_USER,
+        isAnna: process.env.DB_USER.toLowerCase() === 'anna'
+    });
 });
 
 // Listen on the fixed port: 5050
