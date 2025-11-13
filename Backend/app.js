@@ -103,11 +103,59 @@ app.get('/badClients', (request, response) => {
 });
 
 // Fetch the current DB USER
-app.get('/userInfo', (req, res) => {
-    res.json({
+app.get('/userInfo', (request, response) => {
+    response.json({
         dbUser: process.env.DB_USER,
         isAnna: process.env.DB_USER.toLowerCase() === 'anna'
     });
+});
+
+// List all service order requests to Anna Johnson
+app.get('/listServiceOrders', async (request, response) => {
+    const db = dbService.getDbServiceInstance();
+    const result =  db.listServiceOrders(); 
+
+    result
+    .then(data => response.json({data}))
+    .catch(err => console.log(err));
+});
+
+// Generate a service order corresponding to a specific client from the service order list
+app.get('/generateServiceOrder/:requestId', async (request, response) => {
+  const { requestId } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.generateServiceOrder(requestId);
+
+    if (!result) {
+      return response.json({ success: false, error: "Service Request Not Found" });
+    }
+
+    response.json({ success: true, request: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
+});
+
+// Generate a service order corresponding to a specific client from the service order list
+app.get('/generateServiceBill/:requestId', async (request, response) => {
+  const { requestId } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.generateServiceBill(requestId);
+
+    if (!result) {
+      return response.json({ success: false, error: "Service Request Not Found" });
+    }
+
+    response.json({ success: true, request: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
 });
 
 // Listen on the fixed port: 5050

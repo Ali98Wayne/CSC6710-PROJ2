@@ -29,7 +29,8 @@ document.addEventListener("DOMContentLoaded", function() {
         const username = document.querySelector("#signup-username").value.trim();
         const password = document.querySelector("#signup-password").value.trim();
 
-        if (!first_name || !last_name || !address || !address_city || !address_state || !address_zip || !phone || !email || !card_num || !card_month || 
+        if (!first_name || !last_name || !address || !address_city || !address_state || 
+            !address_zip || !phone || !email || !card_num || !card_month || 
             !card_year || !card_cvv || !username || !password) {
             alert("Please fill out all fields.");
             return;
@@ -38,8 +39,9 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch("http://localhost:5050/addUser", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password, first_name, last_name, address, address_city, address_state, address_zip, phone, 
-                email, card_num, card_month, card_year, card_cvv })
+            body: JSON.stringify({ username, password, first_name, last_name, address, 
+                address_city, address_state, address_zip, phone, email, card_num, 
+                card_month, card_year, card_cvv })
         })
         .then(response => response.json())
         .then(data => {
@@ -164,6 +166,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const profileSection = document.querySelector("#profile-section");
         const profileName = document.querySelector("#profile-name");
         const serviceRequest = document.querySelector("#service-request");
+        const serviceOrdersList = document.querySelector("#service-orders-list");
         const queriesSection = document.querySelector("#queries-section");
         const queryResults = document.querySelector("#query-results");
         const queryBody = document.querySelector('#query-results tbody');
@@ -174,12 +177,14 @@ document.addEventListener("DOMContentLoaded", function() {
             profileName.textContent = currentUser; // Set the profile name in the profile section to the logged in username
             logoutBtn.style.display = "none"; // Hide the logout button by default when logged in
             serviceRequest.style.display = "block"; // Show the service request when logged in
+            serviceOrdersList.style.display = "none" // Hide the service orders list
             queriesSection.style.display = "none"; // Show the queries section
             queryResults.style.display = "none"; // Hide the query results table, until a query is made
             if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on login
         } else if (isAnnaUser) {
             authSection.style.display = "none"; // Hide Sign Up & Login sections if Anna Johnson is the DB USER
             serviceRequest.style.display = "none" // Hide the service request if Anna Johnson is the DB USER
+            serviceOrdersList.style.display = "block" // Show the service orders list if Anna Johnson is the DB USER
             queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB USER
         }
         else {
@@ -190,6 +195,7 @@ document.addEventListener("DOMContentLoaded", function() {
             photoFields.innerHTML = ''; // Remove all added photo fields
             photoNum = 0; // Reset counter
             addPhotoButton.style.display = 'inline-block'; // Show the Add Photo button again
+            serviceOrdersList.style.display = "none" // Hide the service orders list
             queriesSection.style.display = "none"; // Hide the queries section
             queryResults.style.display = "none"; // Hide the query results table
             if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on sign out
@@ -248,6 +254,12 @@ document.addEventListener("DOMContentLoaded", function() {
         localStorage.removeItem("loggedInUser");
         updateUI();
     });
+
+    // Load a list of service orders for Anna Johnson
+    fetch('http://localhost:5050/listServiceOrders')
+    .then(response => response.json())
+    .then(result => serviceOrdersList(result.data))
+    .catch(err => console.error(err));
 
     addPhotoButton.addEventListener('click', function() {
         if (photoNum < photosMax) {
@@ -321,8 +333,9 @@ document.addEventListener("DOMContentLoaded", function() {
         fetch("http://localhost:5050/addServiceRequest", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, requestAddress, requestAddressCity, requestAddressState, requestAddressZip, requestCleaningType,
-                requestRoomAmount, requestDateTime, requestBudget, requestNotes, photo_urls : photo_urls ? JSON.stringify(photo_urls) : null}) // Stringify photo_urls if it exists, otherwise pass it as a null value
+            body: JSON.stringify({ username, requestAddress, requestAddressCity, requestAddressState, 
+                requestAddressZip, requestCleaningType, requestRoomAmount, requestDateTime, requestBudget,
+                requestNotes, photo_urls : photo_urls ? JSON.stringify(photo_urls) : null}) // Pass photo_urls as a JSON if it exists, otherwise pass it as a null value
         })
         .then(response => response.json())
         .then(data => {
@@ -422,4 +435,153 @@ function searchResultsTable(query_data, columnsToShow = []) {
         }).join('')}
     </tr>
     `).join('');
+}
+
+// Function for showing a list of service requests to Anna Johnson
+function serviceOrdersList(data) {
+    const tableBody = document.querySelector('#service-orders-list tbody');
+
+    if (!data || data.length === 0) {
+        tableBody.innerHTML = "<tr><td class='no-data' colspan='7'>No Service Order Requests</td></tr>";
+        return;
+    }
+
+    let tableHtml = "";
+
+    data.forEach(({ request_id, client_id, service_address_street, service_address_city,
+        service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, 
+        proposed_budget, request_date}) => {
+        tableHtml += "<tr>";
+        tableHtml += `<td>${request_id}</td>`;
+        tableHtml += `<td>${client_id}</td>`;
+        tableHtml += `<td>${service_address_street}</td>`;
+        tableHtml += `<td>${service_address_city}</td>`;
+        tableHtml += `<td>${service_address_state}</td>`;
+        tableHtml += `<td>${service_address_zip}</td>`;
+        tableHtml += `<td>${cleaning_type}</td>`;
+        tableHtml += `<td>${rooms}</td>`;
+        tableHtml += `<td>${new Date(preferred_date).toLocaleString()}</td>`;
+        tableHtml += `<td>${proposed_budget}</td>`;
+        tableHtml += `<td>${new Date(request_date).toLocaleDateString()}</td>`;
+        tableHtml += `<td><button class="generate-order-btn" data-id="${request_id}">Generate Order</button></td>`;
+        tableHtml += `<td><button class="generate-bill-btn" data-id="${request_id}">Generate Bill</button></td>`;
+        tableHtml += "</tr>";
+    });
+
+    tableBody.innerHTML = tableHtml;
+
+    // Attach event listeners to the generate order buttons
+    document.querySelectorAll('.generate-order-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const requestId = e.target.dataset.id;
+            await generateServiceOrder(requestId);
+        });
+    });
+
+    // Attach event listeners to the generate order buttons
+    document.querySelectorAll('.generate-bill-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const requestId = e.target.dataset.id;
+            await generateServiceBill(requestId);
+        });
+    });
+}
+
+// Function to process a service bill corresponding to a service request
+async function generateServiceBill(requestId) {
+  try {
+    // Fetch the request details
+    const response = await fetch(`http://localhost:5050/generateServiceBill/${requestId}`);
+    const data = await response.json();
+
+    if (!data.success) {
+      alert("Failed to load service request details");
+      return;
+    }
+
+    const req = data.request;
+
+    // Open a blank new tab
+    const newTab = window.open("", "_blank");
+    const doc = newTab.document;
+    doc.open();
+
+    // Write dynamic HTML into the new tab
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Service Bill - Request #${req.request_id}</title>
+        <style>
+          body {
+            background-color: #000;
+            color: #f0f0f0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            padding: 40px 0;
+          }
+
+          main {
+            background-color: #111;
+            padding: 40px 50px;
+            border-radius: 20px;
+            box-shadow: 0 0 25px rgba(255, 255, 255, 0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 800px;
+          }
+
+          h1, h2 {
+            color: #00bfff;
+            margin-bottom: 20px;
+          }
+
+          button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background-color: #00bfff;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+          }
+
+          button:hover {
+            background-color: #0099cc;
+            box-shadow: 0 0 15px #00bfff;
+            transform: translateY(-2px);
+          }
+
+          footer {
+            margin-top: 30px;
+            font-size: 0.85rem;
+            color: #aaa;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Service Bill</h1>
+        <div class="bill-container">
+          <p><strong>Request ID:</strong> ${req.request_id}</p>
+          <p><strong>Client ID:</strong> ${req.client_id}</p>
+          <p><strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state}, ${req.service_address_zip}</p>
+          <p><strong>Cleaning Type:</strong> ${req.cleaning_type}</p>
+          <p><strong>Rooms:</strong> ${req.rooms}</p>
+          <p><strong>Preferred Date:</strong> ${new Date(req.preferred_date).toLocaleString()}</p>
+          <p><strong>Proposed Budget:</strong> $${req.proposed_budget.toFixed(2)}</p>
+          <p><strong>Request Date:</strong> ${new Date(req.request_date).toLocaleDateString()}</p>
+          ${req.notes ? `<p><strong>Notes:</strong> ${req.notes}</p>` : ""}
+        </div>
+      </body>
+      </html>
+    `;
+    doc.write(html);
+    doc.close();
+
+  } catch (err) {
+    alert(`Error loading service bill: ${err.message}`);
+  }
 }

@@ -127,28 +127,16 @@ class DbService{
                 const query = `
                     INSERT INTO request_cleaning
                     (client_id, service_address_street, service_address_city, service_address_state, service_address_zip,
-                    cleaning_type, rooms, preferred_date, proposed_budget, notes)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    cleaning_type, rooms, preferred_date, proposed_budget, notes, photo_urls)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 `;
 
                 connection.query(query, [client_id, service_address, service_address_city, service_address_state, service_address_zip, 
-                cleaning_type, num_rooms, preferred_datetime, proposed_budget, notes ?? null], (err, results) => {
+                cleaning_type, num_rooms, preferred_datetime, proposed_budget, notes ?? null, JSON.stringify(photo_urls || [])], (err, results) => {
                     if (err) reject(err);
                     else resolve(results.insertId);
                 });
             });
-
-            // Insert up to 5 photo URLs (if any)
-            if (photo_urls && photo_urls.length > 0) {
-                const query = `INSERT INTO request_photos (request_id, photo_url) VALUES ?`;
-                const values = photo_urls.slice(0, 5).map(url => [requestResult, url]);
-                await new Promise((resolve, reject) => {
-                    connection.query(query, [values], (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                    });
-                });
-            }
 
             return { success: true, request_id: requestResult };
         } catch (err) {
@@ -252,10 +240,7 @@ class DbService{
                   {
                      const query = `
                         SELECT DISTINCT
-                        u.user_id AS client_id,
-                        u.username,
-                        u.first_name,
-                        u.last_name
+                        u.user_id AS client_id, u.username, u.first_name, u.last_name
                         FROM Users u
                         JOIN Request_Cleaning r ON u.user_id = r.client_id
                         WHERE r.bill_status = 'Unpaid'
@@ -270,6 +255,69 @@ class DbService{
              return response;
 
          } catch(err) {
+            throw err;
+        }
+    }
+
+    async listServiceOrders(){
+        try{
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `
+                        SELECT request_id, client_id, service_address_street, service_address_city, 
+                        service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, proposed_budget, request_date
+                        FROM Request_Cleaning
+                        ORDER BY request_id DESC
+                     `;
+                     connection.query(query, (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+             return response;
+
+         } catch(err) {
+            throw err;
+        }
+    }
+
+    async generateServiceOrder(requestId) {
+        try {
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `SELECT * FROM Request_Cleaning WHERE request_id = ?;`;
+                     connection.query(query, [requestId], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+            return response[0]; // Return the first (and only) record
+        } catch (err) {
+            throw err;
+        }
+    }
+    
+    async generateServiceBill(requestId) {
+        try {
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const selectQuery = `SELECT * FROM Request_Cleaning WHERE request_id = ?;`;
+                     connection.query(selectQuery, [requestId], (err, selectResults) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(selectResults);
+                     });
+
+                     const updateQuery = `UPDATE Request_Cleaning SET bill_status = 'Unpaid', bill_due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY) WHERE request_id = ?;`;
+                     connection.query(updateQuery, [requestId], (err, updateResults) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(updateResults);
+                     });
+                  }
+             );
+            return response[0];
+        } catch (err) {
             throw err;
         }
     }
