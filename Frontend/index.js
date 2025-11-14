@@ -487,11 +487,11 @@ function serviceOrdersList(data) {
     });
 }
 
-// Function to process a service bill corresponding to a service request
-async function generateServiceBill(requestId) {
+// Function to process a service request order corresponding to a service request
+async function generateServiceOrder(requestId) {
   try {
     // Fetch the request details
-    const response = await fetch(`http://localhost:5050/generateServiceBill/${requestId}`);
+    const response = await fetch(`http://localhost:5050/generateServiceOrder/${requestId}`);
     const data = await response.json();
 
     if (!data.success) {
@@ -523,11 +523,7 @@ async function generateServiceBill(requestId) {
           }
 
           main {
-            background-color: #111;
             padding: 40px 50px;
-            border-radius: 20px;
-            box-shadow: 0 0 25px rgba(255, 255, 255, 0.1);
-            text-align: center;
             width: 90%;
             max-width: 800px;
           }
@@ -554,11 +550,77 @@ async function generateServiceBill(requestId) {
             box-shadow: 0 0 15px #00bfff;
             transform: translateY(-2px);
           }
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>Service Agreement</h1>
+          <h2>Request #${req.request_id}</h2>
+          <table>
+            <tr><th>Client ID</th><td>${req.client_id}</td></tr>
+            <tr><th>Service Address</th><td>${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}</td></tr>
+            <tr><th>Cleaning Type</th><td>${req.cleaning_type}</td></tr>
+            <tr><th>Rooms</th><td>${req.rooms}</td></tr>
+            <tr><th>Preferred Date</th><td>${new Date(req.preferred_date).toLocaleString()}</td></tr>
+            <tr><th>Proposed Budget</th><td>$${req.proposed_budget.toFixed(2)}</td></tr>
+            <tr><th>Request Date</th><td>${new Date(req.request_date).toLocaleDateString()}</td></tr>
+            ${req.notes ? `<tr><th>Notes</th><td>${req.notes}</td></tr>` : ""}
+          </table>
+          <p style="margin-top:25px;">By proceeding, the customer agrees to the terms of this service agreement.</p>
+          <button onclick="window.print()">Print Agreement</button>
+        </main>
+      </body>
+      </html>
+    `;
+    doc.write(html);
+    doc.close();
 
-          footer {
-            margin-top: 30px;
-            font-size: 0.85rem;
-            color: #aaa;
+  } catch (err) {
+    alert(`Error loading service request: ${err.message}`);
+  }
+}
+
+// Function to process a service bill corresponding to a service request
+async function generateServiceBill(requestId) {
+  try {
+    const response = await fetch(`http://localhost:5050/generateServiceBill/${requestId}`);
+    const data = await response.json();
+
+    if (!data.success) {
+      alert("Failed to load service request details");
+      return;
+    }
+
+    const req = data.request;
+
+    const newTab = window.open("", "_blank");
+    const doc = newTab.document;
+    doc.open();
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>Service Bill - Request #${req.request_id}</title>
+        <style>
+          body {
+            background-color: #000;
+            color: #f0f0f0;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            padding: 40px 0;
+          }
+
+          main {
+            padding: 40px 50px;
+            width: 90%;
+            max-width: 800px;
+          }
+
+          h1, h2 {
+            color: #00bfff;
+            margin-bottom: 20px;
           }
         </style>
       </head>
