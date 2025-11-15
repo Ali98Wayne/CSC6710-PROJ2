@@ -291,6 +291,12 @@ class DbService{
                          if(err) reject(new Error(err.message));
                          else resolve(results);
                      });
+
+                    const orderFlagQuery = `UPDATE Request_Cleaning SET order_generated = 1 WHERE request_id = ? AND order_generated = 0;`;
+                     connection.query(orderFlagQuery, [requestId], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
                   }
              );
             return response[0]; // Return the first (and only) record
@@ -314,9 +320,39 @@ class DbService{
                          if(err) reject(new Error(err.message));
                          else resolve(updateResults);
                      });
+
+                     const billFlagQuery = `UPDATE Request_Cleaning SET bill_generated = 1 WHERE request_id = ? AND bill_generated = 0;`;
+                     connection.query(billFlagQuery, [requestId], (err, updateResults) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(updateResults);
+                     });
                   }
              );
             return response[0];
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async clientLoadRequests(username) {
+        try {
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `SELECT 
+                        r.request_id,
+                        r.order_generated,
+                        r.bill_generated
+                        FROM Request_Cleaning r
+                        JOIN Users u ON r.client_id = u.user_id
+                        WHERE u.username = ?
+                        ORDER BY r.request_id DESC;`;
+                     connection.query(query, [username], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+            return response;
         } catch (err) {
             throw err;
         }

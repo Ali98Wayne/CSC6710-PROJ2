@@ -158,6 +158,25 @@ app.get('/generateServiceBill/:requestId', async (request, response) => {
   }
 });
 
+// Generate a service order corresponding to a specific client from the service order list
+app.get('/clientLoadRequests/:username', async (request, response) => {
+  const { username } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.clientLoadRequests(username);
+
+    if (!result) {
+      return response.json({ success: false, error: "Username Not Found" });
+    }
+
+    response.json({ success: true, requests: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
+});
+
 // Listen on the fixed port: 5050
 app.listen(5050, () => {
 });

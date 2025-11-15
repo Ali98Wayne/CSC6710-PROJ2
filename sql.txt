@@ -18,7 +18,9 @@ CREATE TABLE Users(
    credit_card_year VARCHAR(4),
    credit_card_cvv VARCHAR(4),
    signup_date DATE,
-   last_login DATETIME
+   last_login DATETIME,
+   order_generated TINYINT(1) DEFAULT 0,
+   bill_generated TINYINT(1) DEFAULT 0
 )
 
 CREATE TABLE Request_Cleaning(

@@ -178,6 +178,7 @@ document.addEventListener("DOMContentLoaded", function() {
             logoutBtn.style.display = "none"; // Hide the logout button by default when logged in
             serviceRequest.style.display = "block"; // Show the service request when logged in
             serviceOrdersList.style.display = "none" // Hide the service orders list
+            clientLoadRequests(currentUser); // Let the logged in user view their service order & bill if Anna generated them
             queriesSection.style.display = "none"; // Show the queries section
             queryResults.style.display = "none"; // Hide the query results table, until a query is made
             if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on login
@@ -186,6 +187,7 @@ document.addEventListener("DOMContentLoaded", function() {
             serviceRequest.style.display = "none" // Hide the service request if Anna Johnson is the DB USER
             serviceOrdersList.style.display = "block" // Show the service orders list if Anna Johnson is the DB USER
             queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB USER
+            document.getElementById("client-requests").innerHTML = ""; // Clear the client requests HTML
         }
         else {
             authSection.style.display = "block"; // Show Sign Up & Login section when not logged in
@@ -199,6 +201,7 @@ document.addEventListener("DOMContentLoaded", function() {
             queriesSection.style.display = "none"; // Hide the queries section
             queryResults.style.display = "none"; // Hide the query results table
             if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on sign out
+            document.getElementById("client-requests").innerHTML = ""; // Clear the client requests HTML
         }
     }
 
@@ -556,16 +559,15 @@ async function generateServiceOrder(requestId) {
         <main>
           <h1>Service Agreement</h1>
           <h2>Request #${req.request_id}</h2>
-          <table>
-            <tr><th>Client ID</th><td>${req.client_id}</td></tr>
-            <tr><th>Service Address</th><td>${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}</td></tr>
-            <tr><th>Cleaning Type</th><td>${req.cleaning_type}</td></tr>
-            <tr><th>Rooms</th><td>${req.rooms}</td></tr>
-            <tr><th>Preferred Date</th><td>${new Date(req.preferred_date).toLocaleString()}</td></tr>
-            <tr><th>Proposed Budget</th><td>$${req.proposed_budget.toFixed(2)}</td></tr>
-            <tr><th>Request Date</th><td>${new Date(req.request_date).toLocaleDateString()}</td></tr>
-            ${req.notes ? `<tr><th>Notes</th><td>${req.notes}</td></tr>` : ""}
-          </table>
+            <p><strong>Client ID:</strong> ${req.client_id}</p>
+            <p><strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state}, ${req.service_address_zip}</p>
+            <p><strong>Cleaning Type:</strong> ${req.cleaning_type}</p>
+            <p><strong>Rooms:</strong> ${req.rooms}</p>
+            <p><strong>Preferred Date:</strong> ${new Date(req.preferred_date).toLocaleString()}</p>
+            <p><strong>Proposed Budget:</strong> $${req.proposed_budget.toFixed(2)}</p>
+            <p><strong>Request Date:</strong> ${new Date(req.request_date).toLocaleDateString()}</p>
+            ${req.notes ? `<p><strong>Notes:</strong> ${req.notes}</p>` : ""}
+            ${req.photo_urls ? `<p><strong>Photo URLS: </strong> ${req.photo_urls}</p>` : ""}
           <p style="margin-top:25px;">By proceeding, the customer agrees to the terms of this service agreement.</p>
           <button onclick="window.print()">Print Agreement</button>
         </main>
@@ -646,4 +648,24 @@ async function generateServiceBill(requestId) {
   } catch (err) {
     alert(`Error loading service bill: ${err.message}`);
   }
+}
+
+// Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
+function clientLoadRequests(username) {
+    fetch(`http://localhost:5050/clientLoadRequests/${username}`)
+    .then(response => response.json())
+    .then(data => {
+        let innerHTML = "";
+
+        data.requests.forEach(req => {
+            if (req.order_generated) innerHTML += `<button onclick="generateServiceOrder(${req.request_id})">View Service Agreement for Request ID: ${req.request_id}</button>`;
+            else innerHTML += `<span>Service Order for Request ${req.request_id} is Pending</span>`;
+            innerHTML += "&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp;"; // Spacing between elements
+            if (req.bill_generated) innerHTML += `<button onclick="generateServiceBill(${req.request_id})">View Bill for Request ID: ${req.request_id}</button>`;
+            else innerHTML += `<span>Service Bill for Request ${req.request_id} is Pending</span>`;
+            innerHTML += "<br>";
+        });
+        document.getElementById("client-requests").innerHTML = innerHTML;
+    })
+    .catch(err => console.error(err));
 }
