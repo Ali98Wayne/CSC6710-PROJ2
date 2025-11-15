@@ -120,6 +120,25 @@ app.get('/listServiceOrders', async (request, response) => {
     .catch(err => console.log(err));
 });
 
+// Get a service order corresponding to a specific request ID
+app.get('/getRequest/:requestId', async (request, response) => {
+  const { requestId } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.getRequest(requestId);
+
+    if (!result) {
+      return response.json({ success: false, error: "Service Request Not Found" });
+    }
+
+    response.json({ success: true, request: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
+});
+
 // Generate a service order corresponding to a specific client from the service order list
 app.get('/generateServiceOrder/:requestId', async (request, response) => {
   const { requestId } = request.params;

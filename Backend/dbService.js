@@ -265,7 +265,7 @@ class DbService{
                   {
                      const query = `
                         SELECT request_id, client_id, service_address_street, service_address_city, 
-                        service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, proposed_budget, request_date
+                        service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, proposed_budget, request_date, order_generated, bill_generated
                         FROM Request_Cleaning
                         ORDER BY request_id DESC
                      `;
@@ -282,7 +282,7 @@ class DbService{
         }
     }
 
-    async generateServiceOrder(requestId) {
+    async getRequest(requestId) {
         try {
              const response = await new Promise((resolve, reject) => 
                   {
@@ -291,48 +291,51 @@ class DbService{
                          if(err) reject(new Error(err.message));
                          else resolve(results);
                      });
-
-                    const orderFlagQuery = `UPDATE Request_Cleaning SET order_generated = 1 WHERE request_id = ? AND order_generated = 0;`;
-                     connection.query(orderFlagQuery, [requestId], (err, results) => {
-                         if(err) reject(new Error(err.message));
-                         else resolve(results);
-                     });
                   }
              );
-            return response[0]; // Return the first (and only) record
+            return response[0];  // Return the first (and only) record
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async generateServiceOrder(requestId) {
+        try {
+            await new Promise((resolve, reject) => {
+                const query = `UPDATE Request_Cleaning SET order_generated = 1 WHERE request_id = ? AND order_generated = 0;`;
+                connection.query(query, [requestId], (err, results) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(results);
+                });
+            });
+            return { success: true };
         } catch (err) {
             throw err;
         }
     }
     
-    async generateServiceBill(requestId) {
+async generateServiceBill(requestId) {
         try {
-             const response = await new Promise((resolve, reject) => 
-                  {
-                     const selectQuery = `SELECT * FROM Request_Cleaning WHERE request_id = ?;`;
-                     connection.query(selectQuery, [requestId], (err, selectResults) => {
-                         if(err) reject(new Error(err.message));
-                         else resolve(selectResults);
-                     });
+            await new Promise((resolve, reject) => {
+                const query = `UPDATE Request_Cleaning SET bill_status = 'Unpaid', bill_due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY) WHERE request_id = ?;`;
+                connection.query(query, [requestId], (err, results) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(results);
+                });
+            });
 
-                     const updateQuery = `UPDATE Request_Cleaning SET bill_status = 'Unpaid', bill_due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY) WHERE request_id = ?;`;
-                     connection.query(updateQuery, [requestId], (err, updateResults) => {
-                         if(err) reject(new Error(err.message));
-                         else resolve(updateResults);
-                     });
-
-                     const billFlagQuery = `UPDATE Request_Cleaning SET bill_generated = 1 WHERE request_id = ? AND bill_generated = 0;`;
-                     connection.query(billFlagQuery, [requestId], (err, updateResults) => {
-                         if(err) reject(new Error(err.message));
-                         else resolve(updateResults);
-                     });
-                  }
-             );
-            return response[0];
+            await new Promise((resolve, reject) => {
+                const query = `UPDATE Request_Cleaning SET bill_generated = 1 WHERE request_id = ? AND bill_generated = 0;`;
+                connection.query(query, [requestId], (err, results) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(results);
+                });
+            });
+            return { success: true };
         } catch (err) {
             throw err;
         }
-    }
+}
 
     async clientLoadRequests(username) {
         try {
