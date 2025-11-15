@@ -11,6 +11,35 @@ document.addEventListener("DOMContentLoaded", function() {
     let photoNum = 0; // Keeps track of how many photo link fields are on the service request page
     const photosMax = 5; // Up to 5 photo link fields can be added
 
+    const signupSection = document.querySelector("#signup-section");
+    const loginSection = document.querySelector("#login-section");
+
+    document.querySelector("#to-login").addEventListener("click", () => {
+        toSignupOrLogin("login");
+    });
+
+    document.querySelector("#to-signup").addEventListener("click", () => {
+        toSignupOrLogin("signup");
+    });
+
+    // Function to swap between Sign Up & Login sections
+    function toSignupOrLogin(target) {
+    if (target === "login") {
+        signupSection.style.display = "none"; // Hide the Sign Up section
+        loginSection.style.display = "block"; // Show the Login section
+    } else {
+        signupSection.style.display = "block"; // Show the Sign Up section
+        loginSection.style.display = "none"; // Hide the Login section
+    }
+
+    // Reset Signup & Login input fields when swapping between sections 
+    document.querySelectorAll("#signup-section input, #login-section input")
+        .forEach(input => (input.value = ""));
+    document.querySelector("#signup-address-state").value = "";
+    document.querySelector("#signup-creditcard-month").value = "January";
+
+    }
+
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
     signupBtn.addEventListener("click", () => {
@@ -56,7 +85,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 document.querySelector("#signup-phone").value = "";
                 document.querySelector("#signup-email").value = "";
                 document.querySelector("#signup-creditcard").value = "";
-                document.querySelector("#signup-creditcard-month").value = "";
+                document.querySelector("#signup-creditcard-month").value = "January";
                 document.querySelector("#signup-creditcard-year").value = "";
                 document.querySelector("#signup-creditcard-cvv").value = "";
                 document.querySelector("#signup-username").value = "";
@@ -162,7 +191,6 @@ document.addEventListener("DOMContentLoaded", function() {
     // Show/hide the profile section based on user login status, hide logout button by default, only show the queries section for Anna Johnson
     function updateUI() {
         const currentUser = localStorage.getItem("loggedInUser");
-        const authSection = document.querySelector("#auth-section");
         const profileSection = document.querySelector("#profile-section");
         const profileName = document.querySelector("#profile-name");
         const serviceRequest = document.querySelector("#service-request");
@@ -172,7 +200,8 @@ document.addEventListener("DOMContentLoaded", function() {
         const queryBody = document.querySelector('#query-results tbody');
 
         if (currentUser) {
-            authSection.style.display = "none"; // Hide Sign Up & Login sections when logged in
+            signupSection.style.display = "none"; // Hide Sign Up section when logged in
+            loginSection.style.display = "none"; // Hide Login section when logged in
             profileSection.style.display = "flex"; // Show the profile section (with a flex display style)
             profileName.textContent = currentUser; // Set the profile name in the profile section to the logged in username
             logoutBtn.style.display = "none"; // Hide the logout button by default when logged in
@@ -183,14 +212,16 @@ document.addEventListener("DOMContentLoaded", function() {
             queryResults.style.display = "none"; // Hide the query results table, until a query is made
             if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on login
         } else if (isAnnaUser) {
-            authSection.style.display = "none"; // Hide Sign Up & Login sections if Anna Johnson is the DB USER
-            serviceRequest.style.display = "none" // Hide the service request if Anna Johnson is the DB USER
-            serviceOrdersList.style.display = "block" // Show the service orders list if Anna Johnson is the DB USER
-            queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB USER
+            signupSection.style.display = "none"; // Hide Sign Up section if Anna Johnson is the DB user
+            loginSection.style.display = "none"; // Hide Login section if Anna Johnson is the DB user
+            serviceRequest.style.display = "none" // Hide the service request if Anna Johnson is the DB user
+            serviceOrdersList.style.display = "block" // Show the service orders list if Anna Johnson is the DB user
+            queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB user
             document.getElementById("client-requests").innerHTML = ""; // Clear the client requests HTML
         }
         else {
-            authSection.style.display = "block"; // Show Sign Up & Login section when not logged in
+            signupSection.style.display = "block"; // Hide Sign Up section when not logged in by default
+            loginSection.style.display = "none"; // Show Login section when not logged in by default
             profileSection.style.display = "none"; // Hide the profile section
             serviceRequest.style.display = "none" // Hide the service request when not logged in
             inputFields.forEach(input => input.value = ""); // Clear all input fields when not logged in

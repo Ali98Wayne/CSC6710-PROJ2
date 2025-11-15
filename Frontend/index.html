@@ -10,8 +10,8 @@
   <main>
     <h1><u>CSC 6710 - PROJECT 2:</u></h1>
 
-    <!-- Sign Up & Login sections, hide them after logging in -->
-    <div id="auth-section">
+    <!-- Sign up section -->
+    <div id="signup-section">
       <h2>Sign Up</h2>
       <label>First Name:</label>
       <input type="text" id="signup-firstname">
@@ -113,9 +113,14 @@
       <input type="password" id="signup-password">
       <br><br>
       <button id="signup-btn">Sign Up</button>
+      <br><br>
+      <p>Already have an account?
+        <button id="to-login">Log in</button>
+      </p>
+      </div>
 
-      <br><br><br>
-
+    <!-- Log in section -->
+    <div id="login-section">
       <h2>Login</h2>
       <label>Username:</label>
       <input type="text" id="user-input">
@@ -124,6 +129,10 @@
       <input type="password" id="pass-input">
       <br><br>
       <button id="login-btn">Login</button>
+      <br><br>
+      <p>Don't have an account?
+        <button id="to-signup">Sign Up</button>
+      </p>
     </div>
 
     <!-- Toggleable profile section, only accessible to logged in users -->
@@ -213,6 +222,7 @@
       <button id="submit-button">Submit</button>
     </div>
     
+    <!-- A table that lists service request orders, only visible if DB USER is Anna Johnson -->
     <table id="service-orders-list">
       <thead>
         <tr>
@@ -261,6 +271,8 @@
       </table>
     </div>
     <br><br>
+
+    <!-- Section for users that aren't Anna Johnson (clients) to view generated orders or bills if available -->
     <div id="client-requests"></div>
   </main>
   <script src="index.js"></script>
