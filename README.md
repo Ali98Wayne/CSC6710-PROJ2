@@ -24,3 +24,4 @@ Workload for this project:
 2. Run `cd Backend` in the "CSC6710-PROJ2" directory
 3. Run `npm start`
 4. Access the website in "http://127.0.0.1:5050/"
+### NOTE: By default, Anna Johnson is the DB user in the .env file, which hides the signup/login since she is the contractor. To enable the client view, edit the .env file username to "root" and make the password blank.
