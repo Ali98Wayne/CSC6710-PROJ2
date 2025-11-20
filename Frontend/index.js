@@ -40,6 +40,104 @@ document.addEventListener("DOMContentLoaded", function() {
 
     }
 
+    
+    function renderAnnaQuoteUI(requests) {
+    const container = document.getElementById('pending-quotes-list');
+    container.innerHTML = '';
+
+    requests.forEach(req => {
+        const div = document.createElement('div');
+        div.classList.add('pending-request');
+
+        // Build innerHTML WITHOUT inline onclick
+        div.innerHTML = `
+            <p>Request #${req.request_id} from ${req.username}</p>
+            <input type="number" placeholder="Quote Price" id="quote-price-${req.request_id}">
+            <input type="datetime-local" id="quote-start-${req.request_id}">
+            <input type="datetime-local" id="quote-end-${req.request_id}">
+            <input type="text" placeholder="Note" id="quote-note-${req.request_id}">
+            <button class="submit-quote-btn">Submit Quote</button>
+            <button class="reject-request-btn">Reject</button>
+        `;
+
+        // Attach listeners dynamically
+        div.querySelector('.submit-quote-btn')
+           .addEventListener('click', () => submitQuote(req.request_id));
+
+        div.querySelector('.reject-request-btn')
+           .addEventListener('click', () => rejectRequest(req.request_id));
+
+        container.appendChild(div);
+    });
+}
+
+
+function submitQuote(requestId) {
+    const price = document.getElementById(`quote-price-${requestId}`).value;
+    const start = document.getElementById(`quote-start-${requestId}`).value;
+    const end = document.getElementById(`quote-end-${requestId}`).value;
+    const note = document.getElementById(`quote-note-${requestId}`).value;
+
+    // Basic validation
+    if (!price || !start || !end) {
+        alert("Please enter price, start, and end dates for the quote.");
+        return;
+    }
+
+    fetch('/addQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            requestId, 
+            responderId: 1, 
+            quotePrice: price, 
+            scheduledStart: start, 
+            scheduledEnd: end, 
+            note: note || '', 
+            status: 'quoted' // Mark as handled
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the request from Anna's UI immediately
+            const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
+            if (reqDiv) reqDiv.remove();
+        } else {
+            alert("Error submitting quote: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error submitting quote:", err));
+}
+
+function rejectRequest(requestId) {
+    fetch('/addQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            requestId, 
+            responderId: 1, 
+            quotePrice: 0, // Avoid NULL errors
+            scheduledStart: new Date().toISOString(), // Avoid NULL errors
+            scheduledEnd: new Date().toISOString(), // Avoid NULL errors
+            note: 'Rejected', 
+            status: 'rejected' // Mark as handled
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            // Remove the request from Anna's UI immediately
+            const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
+            if (reqDiv) reqDiv.remove();
+        } else {
+            alert("Error rejecting request: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error rejecting request:", err));
+}
+
+
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
     signupBtn.addEventListener("click", () => {
@@ -218,6 +316,13 @@ document.addEventListener("DOMContentLoaded", function() {
             serviceOrdersList.style.display = "block" // Show the service orders list if Anna Johnson is the DB user
             queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB user
             document.getElementById("client-requests").innerHTML = ""; // Clear the client requests HTML
+            const pendingQuotesSection = document.getElementById("pending-quotes-section");
+            pendingQuotesSection.style.display = "block";
+            fetch('/pendingRequests')  // <-- backend endpoint you created
+            .then(res => res.json())
+            .then(data => {
+                renderAnnaQuoteUI(data.requests); // render the inputs/buttons
+            });
         }
         else {
             signupSection.style.display = "block"; // Hide Sign Up section when not logged in by default
@@ -390,6 +495,9 @@ document.addEventListener("DOMContentLoaded", function() {
             } else alert("Error: " + (data.error || "Unknown error"));
         })
         .catch(err => console.error("Request Service Error:", err));
+            // ROUTES: QUOTE & NEGOTIATION
+
+
     });
 });
 
@@ -734,21 +842,193 @@ async function viewServiceBill(requestId) {
 }
 
 // Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
+// Load a list of service requests for the logged-in client
 function clientLoadRequests(username) {
-    fetch(`http://localhost:5050/clientLoadRequests/${username}`)
-    .then(response => response.json())
+  fetch(`/clientLoadRequests/${username}`)
+    .then(res => res.json())
     .then(data => {
-        let innerHTML = "";
+      if (!data.success) {
+        console.error(data.error);
+        return;
+      }
 
-        data.requests.forEach(req => {
-            if (req.order_generated) innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement for Request ID: ${req.request_id}</button>`;
-            else innerHTML += `<span>Service Order for Request ${req.request_id} is Pending</span>`;
-            innerHTML += "&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp;"; // Spacing between elements
-            if (req.bill_generated) innerHTML += `<button onclick="viewServiceBill(${req.request_id})">View Bill for Request ID: ${req.request_id}</button>`;
-            else innerHTML += `<span>Service Bill for Request ${req.request_id} is Pending</span>`;
-            innerHTML += "<br>";
-        });
-        document.getElementById("client-requests").innerHTML = innerHTML;
+      let innerHTML = "";
+
+      data.requests.forEach(req => {
+        innerHTML += `<div class="client-request" style="margin-bottom:15px;">`;
+        innerHTML += `<strong>Request ID:</strong> ${req.request_id} | <strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
+        innerHTML += `<strong>Cleaning Type:</strong> ${req.cleaning_type} | <strong>Rooms:</strong> ${req.rooms} | <strong>Proposed Budget:</strong> $${req.proposed_budget}<br>`;
+
+        if (!req.quote_status) {
+          innerHTML += `<span style="color:orange;">No quote yet. Waiting for Anna...</span>`;
+        } else if (req.quote_status === "rejected") {
+          innerHTML += `<span style="color:red;">Quote rejected by Anna</span><br>`;
+          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit</button>`; // ← NEW
+        } else if (req.quote_status === "quoted") {
+          innerHTML += `<span style="color:blue;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note}</span><br>`;
+          innerHTML += `<button onclick="acceptQuote(${req.request_id})">Accept</button> `;
+          innerHTML += `<button onclick="counterQuote(${req.request_id})">Counter / Negotiate</button>`;
+        } else if (req.quote_status === "accepted") {
+          innerHTML += `<span style="color:green;">Quote accepted ✅</span>`;
+        }
+
+        innerHTML += `</div>`;
+      });
+
+      document.getElementById("client-requests").innerHTML = innerHTML;
     })
     .catch(err => console.error(err));
+}
+
+// Accept the latest quote
+function acceptQuote(requestId) {
+  fetch('/updateQuote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, status: 'accepted' })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Quote for Request #${requestId} accepted!`);
+      clientLoadRequests(localStorage.getItem("loggedInUser"));
+    } else {
+      alert("Error: " + (data.error || "Unknown error"));
+    }
+  })
+  .catch(err => console.error(err));
+}
+
+// Counter / negotiate quote
+function counterQuote(requestId, oldPrice) {
+  const newPrice = prompt("Enter your counter price:", oldPrice);
+  if (!newPrice) return;
+  const note = prompt("Enter your counter / negotiation note:");
+  
+  fetch('/updateQuote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, quote_price: newPrice, note, status: 'countered' })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Counter note submitted for Request #${requestId}`);
+      clientLoadRequests(localStorage.getItem("loggedInUser"));
+    } else {
+      alert("Error: " + (data.error || "Unknown error"));
+    }
+  })
+  .catch(err => console.error(err));
+}
+
+function resubmitRequest(requestId) {
+  fetch(`/getRequest/${requestId}`) // fetch the rejected request data
+    .then(res => res.json())
+    .then(data => {
+      if (!data.success) {
+        alert("Error fetching request details: " + (data.error || "Unknown error"));
+        return;
+      }
+
+      const req = data.request;
+
+      // Prefill the service request form
+      document.querySelector('#service-address').value = req.service_address_street;
+      document.querySelector('#service-address-city').value = req.service_address_city;
+      document.querySelector('#service-address-state').value = req.service_address_state;
+      document.querySelector('#service-address-zip').value = req.service_address_zip;
+      document.querySelector('#cleaning-type').value = req.cleaning_type;
+      document.querySelector('#room-amount').value = req.rooms;
+      document.querySelector('#preferred-date-time').value = new Date(req.preferred_date).toISOString().slice(0,16);
+      document.querySelector('#proposed-budget').value = req.proposed_budget;
+      document.querySelector('#notes').value = req.notes || '';
+
+      // Prefill photos if any
+      const photoFields = document.getElementById('photo-fields');
+      photoFields.innerHTML = '';
+      let photoNum = 0;
+      if (req.photo_urls) {
+        const photos = JSON.parse(req.photo_urls);
+        photos.forEach((url, idx) => {
+          const div = document.createElement('div');
+          div.classList.add('photo-field');
+
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.id = `photo-link${idx+1}`;
+          input.value = url;
+          input.placeholder = `Photo ${idx+1}`;
+
+          const removeBtn = document.createElement('button');
+          removeBtn.type = 'button';
+          removeBtn.textContent = 'Remove';
+          removeBtn.addEventListener('click', () => div.remove());
+
+          div.appendChild(input);
+          div.appendChild(removeBtn);
+          photoFields.appendChild(div);
+          photoNum++;
+        });
+      }
+
+      // Scroll to the form
+      document.querySelector('#service-request').scrollIntoView({ behavior: 'smooth' });
+
+      // Override the submit button for this resubmission
+      const submitButton = document.querySelector('#submit-button');
+      submitButton.onclick = function() {
+        submitResubmittedRequest(requestId);
+      };
+    })
+    .catch(err => console.error(err));
+}
+
+function submitResubmittedRequest(requestId) {
+  const username = localStorage.getItem("loggedInUser");
+  const requestAddress = document.querySelector('#service-address').value.trim();
+  const requestAddressCity = document.querySelector('#service-address-city').value.trim();
+  const requestAddressState = document.querySelector('#service-address-state').value.trim();
+  const requestAddressZip = document.querySelector('#service-address-zip').value.trim();
+  const requestCleaningType = document.querySelector('#cleaning-type').value.trim();
+  const requestRoomAmount = document.querySelector('#room-amount').value.trim();
+  const requestDateTime = document.querySelector('#preferred-date-time').value.trim();
+  const requestBudget = document.querySelector('#proposed-budget').value.trim();
+  const requestNotes = document.querySelector('#notes')?.value.trim() || null;
+  const photo_urls = Array.from(document.querySelectorAll('.photo-field input')).map(inp => inp.value.trim());
+
+  if (!requestAddress || !requestAddressCity || !requestAddressState || !requestAddressZip || 
+      !requestCleaningType || !requestRoomAmount || !requestDateTime || !requestBudget) {
+    alert("Please fill out all fields.");
+    return;
+  }
+
+  fetch('/resubmitRequest', { // NEW server endpoint
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requestId,
+      username,
+      requestAddress,
+      requestAddressCity,
+      requestAddressState,
+      requestAddressZip,
+      requestCleaningType,
+      requestRoomAmount,
+      requestDateTime,
+      requestBudget,
+      requestNotes,
+      photo_urls: JSON.stringify(photo_urls)
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert(`Request #${requestId} resubmitted successfully!`);
+      clientLoadRequests(username); // reload client requests
+    } else {
+      alert("Error: " + (data.error || "Unknown error"));
+    }
+  })
+  .catch(err => console.error(err));
 }

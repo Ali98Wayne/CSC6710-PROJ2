@@ -144,6 +144,240 @@ class DbService{
         }
     }
 
+        // function to allow Anna (responder) to respond to a service request (send quote or reject)
+    async respondToQuote(responder_username, requestId, price, scheduled_start, scheduled_end, note, isReject) {
+        try {
+            // resolve responder's user_id from username
+            const responderId = await new Promise((resolve, reject) => {
+                const q = "SELECT user_id FROM Users WHERE username = ?";
+                connection.query(q, [responder_username], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Responder not found"));
+                    else resolve(results[0].user_id);
+                });
+            });
+
+            // set status: rejected or pending (a sent quote is 'pending' until client acts)
+            const status = isReject ? 'rejected' : 'pending';
+
+            // insert the quote/rejection row into Quotes table
+            const insertId = await new Promise((resolve, reject) => {
+                const query = `
+                    INSERT INTO Quotes
+                    (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, responder_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'Anna')
+                `;
+                connection.query(query, [requestId, responderId, price ?? null, scheduled_start ?? null, scheduled_end ?? null, note ?? null, status],
+                    (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result.insertId);
+                    });
+            });
+
+            return { success: true, quote_id: insertId };
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // function to allow the client to respond to a quote (accept / reject / counter)
+    // note: client_username is the client's username (we resolve to user_id here)
+    async clientRespondToQuote(client_username, requestId, status, note) {
+        try {
+            // resolve client's user_id
+            const clientId = await new Promise((resolve, reject) => {
+                const q = "SELECT user_id FROM Users WHERE username = ?";
+                connection.query(q, [client_username], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Client not found"));
+                    else resolve(results[0].user_id);
+                });
+            });
+
+            // insert the client's response as a new Quotes row with responder_type = 'Client'
+            const insertId = await new Promise((resolve, reject) => {
+                const query = `
+                    INSERT INTO Quotes
+                    (request_id, responder_id, note, status, responder_type)
+                    VALUES (?, ?, ?, ?, 'Client')
+                `;
+                connection.query(query, [requestId, clientId, note ?? null, status], (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result.insertId);
+                });
+            });
+
+            // if the client accepted -> create an order (set order_generated and quote_accept_date)
+            if (status === 'accepted') {
+                await new Promise((resolve, reject) => {
+                    const q = "UPDATE Request_Cleaning SET order_generated = 1, quote_accept_date = NOW() WHERE request_id = ?";
+                    connection.query(q, [requestId], (err, res) => err ? reject(err) : resolve(res));
+                });
+            }
+
+            return { success: true, response_id: insertId };
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // function to fetch the full quote/negotiation history for a given request
+    async getQuoteHistory(requestId) {
+        try {
+            const response = await new Promise((resolve, reject) => {
+                const query = `
+                    SELECT q.*, u.username AS responder_username
+                    FROM Quotes q
+                    LEFT JOIN Users u ON q.responder_id = u.user_id
+                    WHERE q.request_id = ?
+                    ORDER BY q.created_at ASC, q.round ASC
+                `;
+                connection.query(query, [requestId], (err, results) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(results);
+                });
+            });
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // function to mark a bill as paid (client pays immediately)
+    async payBill(client_username, billId, paymentNote = null) {
+        try {
+            // resolve client id
+            const clientId = await new Promise((resolve, reject) => {
+                const q = "SELECT user_id FROM Users WHERE username = ?";
+                connection.query(q, [client_username], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Client not found"));
+                    else resolve(results[0].user_id);
+                });
+            });
+
+            // update bill status and payment_date
+            await new Promise((resolve, reject) => {
+                const q = `
+                    UPDATE Bills
+                    SET status = 'Paid', payment_date = CURRENT_DATE
+                    WHERE bill_id = ?
+                `;
+                connection.query(q, [billId], (err, res) => err ? reject(err) : resolve(res));
+            });
+
+            // record the payment in Bill_History (so every action is stored)
+            await new Promise((resolve, reject) => {
+                const q = `
+                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note, new_amount)
+                    VALUES (?, ?, 'Client', ?, NULL)
+                `;
+                connection.query(q, [billId, clientId, paymentNote ?? 'Payment recorded'], (err, res) => err ? reject(err) : resolve(res));
+            });
+
+            return { success: true };
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // function to allow a client to dispute a bill (adds a Bill_History entry and sets status to 'Disputed')
+    async disputeBill(client_username, billId, note) {
+        try {
+            // resolve client id
+            const clientId = await new Promise((resolve, reject) => {
+                const q = "SELECT user_id FROM Users WHERE username = ?";
+                connection.query(q, [client_username], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Client not found"));
+                    else resolve(results[0].user_id);
+                });
+            });
+
+            // insert dispute note into Bill_History
+            await new Promise((resolve, reject) => {
+                const q = `
+                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note)
+                    VALUES (?, ?, 'Client', ?)
+                `;
+                connection.query(q, [billId, clientId, note ?? 'Client dispute'], (err, res) => err ? reject(err) : resolve(res));
+            });
+
+            // update bill status to Disputed
+            await new Promise((resolve, reject) => {
+                const q = "UPDATE Bills SET status = 'Disputed' WHERE bill_id = ?";
+                connection.query(q, [billId], (err, res) => err ? reject(err) : resolve(res));
+            });
+
+            return { success: true };
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // function to allow Anna to revise a bill (adjust amount, add note) and store revision in Bill_History
+    async reviseBill(responder_username, billId, newAmount, note) {
+        try {
+            // resolve Anna's user_id
+            const responderId = await new Promise((resolve, reject) => {
+                const q = "SELECT user_id FROM Users WHERE username = ?";
+                connection.query(q, [responder_username], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Responder not found"));
+                    else resolve(results[0].user_id);
+                });
+            });
+
+            // insert revision into Bill_History
+            await new Promise((resolve, reject) => {
+                const q = `
+                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, new_amount, note)
+                    VALUES (?, ?, 'Anna', ?, ?)
+                `;
+                connection.query(q, [billId, responderId, newAmount ?? null, note ?? null], (err, res) => err ? reject(err) : resolve(res));
+            });
+
+            // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
+            await new Promise((resolve, reject) => {
+                const q = `
+                    UPDATE Bills
+                    SET bill_amount = ?, status = 'Unpaid'
+                    WHERE bill_id = ?
+                `;
+                connection.query(q, [newAmount, billId], (err, res) => err ? reject(err) : resolve(res));
+            });
+
+            return { success: true };
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // function to fetch bill negotiation history for a given bill
+    async getBillHistory(billId) {
+        try {
+            const response = await new Promise((resolve, reject) => {
+                const query = `
+                    SELECT bh.*, u.username AS responder_username
+                    FROM Bill_History bh
+                    LEFT JOIN Users u ON bh.responder_id = u.user_id
+                    WHERE bh.bill_id = ?
+                    ORDER BY bh.created_at ASC
+                `;
+                connection.query(query, [billId], (err, results) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(results);
+                });
+            });
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+
      async mostServiceOrders(){
         try{
              const response = await new Promise((resolve, reject) => 
@@ -314,52 +548,180 @@ class DbService{
         }
     }
     
-async generateServiceBill(requestId) {
-        try {
-            await new Promise((resolve, reject) => {
-                const query = `UPDATE Request_Cleaning SET bill_status = 'Unpaid', bill_due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY) WHERE request_id = ?;`;
-                connection.query(query, [requestId], (err, results) => {
-                    if (err) reject(new Error(err.message));
-                    else resolve(results);
+    async generateServiceBill(requestId) {
+            try {
+                await new Promise((resolve, reject) => {
+                    const query = `UPDATE Request_Cleaning SET bill_status = 'Unpaid', bill_due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY) WHERE request_id = ?;`;
+                    connection.query(query, [requestId], (err, results) => {
+                        if (err) reject(new Error(err.message));
+                        else resolve(results);
+                    });
                 });
-            });
 
-            await new Promise((resolve, reject) => {
-                const query = `UPDATE Request_Cleaning SET bill_generated = 1 WHERE request_id = ? AND bill_generated = 0;`;
-                connection.query(query, [requestId], (err, results) => {
-                    if (err) reject(new Error(err.message));
-                    else resolve(results);
+                await new Promise((resolve, reject) => {
+                    const query = `UPDATE Request_Cleaning SET bill_generated = 1 WHERE request_id = ? AND bill_generated = 0;`;
+                    connection.query(query, [requestId], (err, results) => {
+                        if (err) reject(new Error(err.message));
+                        else resolve(results);
+                    });
                 });
+                return { success: true };
+            } catch (err) {
+                throw err;
+            }
+    }
+async getPendingRequestsForAnna() {
+    try {
+        const response = await new Promise((resolve, reject) => {
+            const query = `
+                SELECT r.request_id, u.username, r.service_address_street, r.service_address_city,
+                       r.service_address_state, r.service_address_zip, r.cleaning_type,
+                       r.rooms, r.preferred_date, r.proposed_budget, r.notes
+                FROM Request_Cleaning r
+                JOIN Users u ON r.client_id = u.user_id
+                WHERE r.request_id NOT IN (
+                    SELECT request_id FROM Quotes WHERE status IN ('quoted', 'rejected')
+                )
+                ORDER BY r.request_date ASC;
+            `;
+            connection.query(query, (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
             });
-            return { success: true };
-        } catch (err) {
-            throw err;
-        }
-}
-
-    async clientLoadRequests(username) {
-        try {
-             const response = await new Promise((resolve, reject) => 
-                  {
-                     const query = `SELECT 
-                        r.request_id,
-                        r.order_generated,
-                        r.bill_generated
-                        FROM Request_Cleaning r
-                        JOIN Users u ON r.client_id = u.user_id
-                        WHERE u.username = ?
-                        ORDER BY r.request_id DESC;`;
-                     connection.query(query, [username], (err, results) => {
-                         if(err) reject(new Error(err.message));
-                         else resolve(results);
-                     });
-                  }
-             );
-            return response;
-        } catch (err) {
-            throw err;
-        }
+        });
+        return response;
+    } catch (err) {
+        throw err;
     }
 }
+
+async clientLoadRequests(username) {
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const query = `
+        SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
+               r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
+               r.notes, q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status
+        FROM Request_Cleaning r
+        LEFT JOIN Users u ON r.client_id = u.user_id
+        LEFT JOIN Quotes q ON r.request_id = q.request_id
+        WHERE u.username = ?
+        ORDER BY r.request_date ASC
+      `;
+      connection.query(query, [username], (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+    return result;
+  } catch (err) {
+    throw err;
+  }
+}
+        // Anna responds to a request with a quote or rejection
+ async addQuote(requestId, responderId, quotePrice, start, end, note, status) {
+    try {
+        if (status === 'rejected') {
+            // Just update the status
+            const result = await new Promise((resolve, reject) => {
+                const query = `UPDATE Quotes 
+                               SET status = ?, note = ?
+                               WHERE request_id = ? AND responder_id = ?`;
+                connection.query(query, [status, note, requestId, responderId], (err, res) => {
+                    if(err) reject(err); else resolve(res.affectedRows);
+                });
+            });
+            return result;
+        } else {
+            // Insert a new quote
+            const result = await new Promise((resolve, reject) => {
+                const query = `INSERT INTO Quotes 
+                                (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)`;
+                connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
+                    if(err) reject(err); else resolve(res.insertId);
+                });
+            });
+            return result;
+        }
+    } catch(err) { throw err; }
+}
+
+async upsertQuote(requestId, responderId, quotePrice, start, end, note, status) {
+    try {
+        const result = await new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO Quotes (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    quote_price = VALUES(quote_price),
+                    scheduled_start = VALUES(scheduled_start),
+                    scheduled_end = VALUES(scheduled_end),
+                    note = VALUES(note),
+                    status = VALUES(status)
+            `;
+            connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
+                if(err) reject(err); 
+                else resolve(res.insertId || requestId); // return ID
+            });
+        });
+        return result;
+    } catch(err) { throw err; }
+}
+
+async updateQuote(requestId, status, note = null) {
+  try {
+    return await new Promise((resolve, reject) => {
+      const query = `UPDATE Quotes SET status = ?, note = COALESCE(?, note) WHERE request_id = ?`;
+      connection.query(query, [status, note, requestId], (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+  } catch (err) {
+    throw err;
+  }
+}
+
+    // Client submits a counter-note for negotiation
+    async counterQuote(requestId, responderId, note) {
+    try {
+        const result = await new Promise((resolve, reject) => {
+        const query = `INSERT INTO Quotes 
+                        (request_id, responder_id, note, status, round)
+                        VALUES (?, ?, ?, 'countered', COALESCE((SELECT MAX(round) FROM Quotes WHERE request_id = ?), 0) + 1)`;
+        connection.query(query, [requestId, responderId, note, requestId], (err, res) => {
+            if(err) reject(err); else resolve(res.insertId);
+        });
+        });
+        return result;
+    } catch(err) { throw err; }
+    }
+
+async resubmitRequest(data) {
+  const { requestId, username, requestAddress, requestAddressCity, requestAddressState,
+          requestAddressZip, requestCleaningType, requestRoomAmount, requestDateTime,
+          requestBudget, requestNotes, photo_urls } = data;
+
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE Request_Cleaning
+      SET service_address_street = ?, service_address_city = ?, service_address_state = ?, service_address_zip = ?,
+          cleaning_type = ?, rooms = ?, preferred_date = ?, proposed_budget = ?, notes = ?, photo_urls = ?, quote_status = NULL
+      WHERE request_id = ?;
+    `;
+    connection.query(query, [
+      requestAddress, requestAddressCity, requestAddressState, requestAddressZip,
+      requestCleaningType, requestRoomAmount, requestDateTime, requestBudget,
+      requestNotes, photo_urls, requestId
+    ], (err, result) => {
+      if (err) reject(err);
+      else resolve(result);
+    });
+  });
+}
+}
+
+
 
 module.exports = DbService;

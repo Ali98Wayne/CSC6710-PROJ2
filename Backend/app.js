@@ -61,6 +61,41 @@ app.post("/addServiceRequest", async (request, response) => {
       .catch(err => console.log(err));
 });
 
+// Anna responds to a request with a quote or rejection
+app.post('/addQuote', async (req, res) => {
+    const { requestId, responderId, quotePrice, scheduledStart, scheduledEnd, note, status } = req.body;
+    const db = dbService.getDbServiceInstance();
+    try {
+        const result = await db.upsertQuote(requestId, responderId, quotePrice, scheduledStart, scheduledEnd, note, status);
+        res.json({ success: true, result });
+    } catch(err) { 
+        res.json({ success: false, error: err.message }); 
+    }
+});
+
+app.post('/updateQuote', async (req, res) => {
+  const { requestId, status, note } = req.body;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    await db.updateQuote(requestId, status, note);
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Client submits a counter-note for negotiation
+app.post('/counterQuote', async (req, res) => {
+  const { requestId, responderId, note } = req.body;
+  const db = dbService.getDbServiceInstance();
+  try {
+    const result = await db.counterQuote(requestId, responderId, note);
+    res.json({ success: true, result });
+  } catch(err) { res.json({ success: false, error: err.message }); }
+});
+
 // Search users that have the most service orders. "request" is unused, must be a parameter so "response" isn't mistaken for a request and throws an error
 app.get('/mostServiceOrders', (request, response) => {
     const db = dbService.getDbServiceInstance();
@@ -177,22 +212,63 @@ app.get('/generateServiceBill/:requestId', async (request, response) => {
   }
 });
 
-// Generate a service order corresponding to a specific client from the service order list
-app.get('/clientLoadRequests/:username', async (request, response) => {
-  const { username } = request.params;
+// Fetch all client requests along with their quote/negotiation status
+app.get('/clientLoadRequests/:username', async (req, res) => {
+  const { username } = req.params;
   const db = dbService.getDbServiceInstance();
 
   try {
-    const result = await db.clientLoadRequests(username);
+    const requests = await db.clientLoadRequests(username);
 
-    if (!result) {
-      return response.json({ success: false, error: "Username Not Found" });
+    if (!requests) {
+      return res.json({ success: false, error: "Username Not Found" });
     }
 
-    response.json({ success: true, requests: result });
+    res.json({ success: true, requests });
   } catch (err) {
     console.error(err);
-    response.json({ success: false, error: err.message });
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// Fetch all pending requests that need Anna's quote
+// Fetch all pending requests that need Anna's quote
+app.get('/pendingRequests', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const requests = await db.getPendingRequestsForAnna(); // fetch only unhandled requests
+        res.json({ requests });
+    } catch (err) {
+        console.error('Error fetching pending requests:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/resubmitRequest', async (req, res) => {
+  const db = dbService.getDbServiceInstance();
+  const { requestId, username, requestAddress, requestAddressCity, requestAddressState,
+          requestAddressZip, requestCleaningType, requestRoomAmount, requestDateTime,
+          requestBudget, requestNotes, photo_urls } = req.body;
+
+  try {
+    const result = await db.resubmitRequest({
+      requestId,
+      username,
+      requestAddress,
+      requestAddressCity,
+      requestAddressState,
+      requestAddressZip,
+      requestCleaningType,
+      requestRoomAmount,
+      requestDateTime,
+      requestBudget,
+      requestNotes,
+      photo_urls
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.json({ success: false, error: err.message });
   }
 });
 

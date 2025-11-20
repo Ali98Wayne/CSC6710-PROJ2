@@ -76,3 +76,25 @@ CREATE TABLE Bills (
     CONSTRAINT fk_bill_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_bill_client FOREIGN KEY (client_id) REFERENCES Users(user_id)
 ) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS Bill_History (
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    bill_id INT NOT NULL,
+    responder_id INT NOT NULL,
+    responder_type ENUM('Anna','Client') NOT NULL,
+    note TEXT,
+    new_amount DECIMAL(10,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_bill_history_bill FOREIGN KEY (bill_id) REFERENCES Bills(bill_id),
+    CONSTRAINT fk_bill_history_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)
+) ENGINE=InnoDB;
+
+ALTER TABLE Request_Cleaning
+ADD COLUMN order_generated TINYINT(1) DEFAULT 0,
+ADD COLUMN bill_generated TINYINT(1) DEFAULT 0;
+
+Expand Requery Edit Bookmark Database : Queried time : 16:41:14
+ALTER TABLE request_cleaning ADD COLUMN photo_urls JSON NULL;
+ALTER TABLE Request_Cleaning ADD COLUMN order_generated TINYINT(1) DEFAULT 0, ADD COLUMN bill_generated TINYINT(1) DEFAULT 0;
+ALTER TABLE quotes MODIFY quote_price DECIMAL(10,2) NULL;
+ALTER TABLE quotes MODIFY quote_price DECIMAL(10,2) NULL, MODIFY scheduled_start DATETIME NULL, MODIFY scheduled_end DATETIME NULL;
