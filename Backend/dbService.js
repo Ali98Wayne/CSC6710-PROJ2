@@ -731,27 +731,27 @@ async clientLoadRequests(username) {
     } catch(err) { throw err; }
 }
 
-// async upsertQuote(requestId, responderId, quotePrice, start, end, note, status) {
-//     try {
-//         const result = await new Promise((resolve, reject) => {
-//             const query = `
-//                 INSERT INTO Quotes (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
-//                 VALUES (?, ?, ?, ?, ?, ?, ?)
-//                 ON DUPLICATE KEY UPDATE
-//                     quote_price = VALUES(quote_price),
-//                     scheduled_start = VALUES(scheduled_start),
-//                     scheduled_end = VALUES(scheduled_end),
-//                     note = VALUES(note),
-//                     status = VALUES(status)
-//             `;
-//             connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
-//                 if(err) reject(err); 
-//                 else resolve(res.insertId || requestId); // return ID
-//             });
-//         });
-//         return result;
-//     } catch(err) { throw err; }
-// }
+async upsertQuote(requestId, responderId, quotePrice, start, end, note, status) {
+    try {
+        const result = await new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO Quotes (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    quote_price = VALUES(quote_price),
+                    scheduled_start = VALUES(scheduled_start),
+                    scheduled_end = VALUES(scheduled_end),
+                    note = VALUES(note),
+                    status = VALUES(status)
+            `;
+            connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
+                if(err) reject(err); 
+                else resolve(res.insertId || requestId); // return ID
+            });
+        });
+        return result;
+    } catch(err) { throw err; }
+}
 
 async updateQuote(requestId, status, note = null) {
   try {
@@ -791,7 +791,7 @@ async resubmitRequest(data) {
     const query = `
       UPDATE Request_Cleaning
       SET service_address_street = ?, service_address_city = ?, service_address_state = ?, service_address_zip = ?,
-          cleaning_type = ?, rooms = ?, preferred_date = ?, proposed_budget = ?, notes = ?, photo_urls = ?, quote_status = NULL
+          cleaning_type = ?, rooms = ?, preferred_date = ?, proposed_budget = ?, notes = ?, photo_urls = ? 
       WHERE request_id = ?;
     `;
     connection.query(query, [
