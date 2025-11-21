@@ -492,7 +492,91 @@ class DbService{
             throw err;
         }
     }
+// 4. Uncommitted Clients: 3+ requests but never completed an order
+async uncommittedClients() {
+    try {
+        const query = `
+            SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
+            FROM Users u
+            JOIN Request_Cleaning r ON u.user_id = r.client_id
+            WHERE r.order_generated = 0
+            GROUP BY u.user_id
+            HAVING request_count >= 3
+        `;
+        const response = await new Promise((resolve, reject) => {
+            connection.query(query, (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
+        return response;
+    } catch (err) {
+        throw err;
+    }
+}
 
+// 6. Prospective Clients: registered but never submitted any request
+async prospectiveClients() {
+    try {
+        const query = `
+            SELECT u.user_id, u.first_name, u.last_name, u.email
+            FROM Users u
+            LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
+            WHERE r.client_id IS NULL
+        `;
+        const response = await new Promise((resolve, reject) => {
+            connection.query(query, (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
+        return response;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// 8. Overdue Bills: unpaid bills older than one week
+async overdueBills() {
+    try {
+        const query = `
+            SELECT * FROM Bills
+            WHERE status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
+        `;
+        const response = await new Promise((resolve, reject) => {
+            connection.query(query, (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
+        return response;
+    } catch (err) {
+        throw err;
+    }
+}
+
+// 10. Good Clients: always paid bills within 24 hours
+async goodClients() {
+    try {
+        const query = `
+            SELECT u.user_id, u.first_name, u.last_name, u.email
+            FROM Users u
+            JOIN Bills b ON u.user_id = b.client_id
+            GROUP BY u.user_id
+            HAVING SUM(TIMESTAMPDIFF(HOUR, b.created_at, b.payment_date) > 24) = 0
+        `;
+        const response = await new Promise((resolve, reject) => {
+            connection.query(query, (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
+        return response;
+    } catch (err) {
+        throw err;
+    }
+}
+    
     async listServiceOrders(){
         try{
              const response = await new Promise((resolve, reject) => 

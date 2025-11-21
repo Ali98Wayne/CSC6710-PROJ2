@@ -538,6 +538,42 @@ badClientsBtn.onclick = function () {
     .catch(err => console.error("Most Service Orders search error:", err));
 }
 
+// Uncommitted Clients search
+const uncommittedClientsBtn = document.querySelector('#uncommitted-clients-btn');
+uncommittedClientsBtn.onclick = function () {
+    fetch('http://localhost:5050/uncommittedClients')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['user_id', 'first_name', 'last_name', 'email', 'request_count']))
+    .catch(err => console.error("Uncommitted Clients search error:", err));
+}
+
+// Prospective Clients search
+const prospectiveClientsBtn = document.querySelector('#prospective-clients-btn');
+prospectiveClientsBtn.onclick = function () {
+    fetch('http://localhost:5050/prospectiveClients')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['user_id', 'first_name', 'last_name', 'email']))
+    .catch(err => console.error("Prospective Clients search error:", err));
+}
+
+// Overdue Bills search
+const overdueBillsBtn = document.querySelector('#overdue-bills-btn');
+overdueBillsBtn.onclick = function () {
+    fetch('http://localhost:5050/overdueBills')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['bill_id', 'request_id', 'client_id', 'bill_amount', 'status', 'due_date', 'payment_date', 'note']))
+    .catch(err => console.error("Overdue Bills search error:", err));
+}
+
+// Good Clients search
+const goodClientsBtn = document.querySelector('#good-clients-btn');
+goodClientsBtn.onclick = function () {
+    fetch('http://localhost:5050/goodClients')
+    .then(response => response.json())
+    .then(data => searchResultsTable(data['data'], ['user_id', 'first_name', 'last_name', 'email']))
+    .catch(err => console.error("Good Clients search error:", err));
+}
+
 // Function for showing query results in a table that differs in what columns are shown
 function searchResultsTable(query_data, columnsToShow = []) {
     const queryResults = document.querySelector("#query-results");

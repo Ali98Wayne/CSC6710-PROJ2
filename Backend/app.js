@@ -137,6 +137,54 @@ app.get('/badClients', (request, response) => {
     .catch(err => console.log(err));
 });
 
+// 4. Uncommitted Clients
+app.get('/uncommittedClients', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const data = await db.uncommittedClients();
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// 6. Prospective Clients
+app.get('/prospectiveClients', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const data = await db.prospectiveClients();
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// 8. Overdue Bills
+app.get('/overdueBills', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const data = await db.overdueBills();
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+// 10. Good Clients
+app.get('/goodClients', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const data = await db.goodClients();
+        res.json({ success: true, data });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // Fetch the current DB USER
 app.get('/userInfo', (request, response) => {
     response.json({
