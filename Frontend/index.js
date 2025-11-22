@@ -288,58 +288,61 @@ function rejectRequest(requestId) {
 
     // Show/hide the profile section based on user login status, hide logout button by default, only show the queries section for Anna Johnson
     function updateUI() {
-        const currentUser = localStorage.getItem("loggedInUser");
-        const profileSection = document.querySelector("#profile-section");
-        const profileName = document.querySelector("#profile-name");
-        const serviceRequest = document.querySelector("#service-request");
-        const serviceOrdersList = document.querySelector("#service-orders-list");
-        const queriesSection = document.querySelector("#queries-section");
-        const queryResults = document.querySelector("#query-results");
-        const queryBody = document.querySelector('#query-results tbody');
+    const currentUser = localStorage.getItem("loggedInUser");
+    const profileSection = document.querySelector("#profile-section");
+    const profileName = document.querySelector("#profile-name");
+    const serviceRequest = document.querySelector("#service-request");
+    const serviceOrdersList = document.querySelector("#service-orders-list");
+    const queriesSection = document.querySelector("#queries-section");
+    const queryResults = document.querySelector("#query-results");
+    const queryBody = document.querySelector('#query-results tbody');
 
-        if (currentUser) {
-            signupSection.style.display = "none"; // Hide Sign Up section when logged in
-            loginSection.style.display = "none"; // Hide Login section when logged in
-            profileSection.style.display = "flex"; // Show the profile section (with a flex display style)
-            profileName.textContent = currentUser; // Set the profile name in the profile section to the logged in username
-            logoutBtn.style.display = "none"; // Hide the logout button by default when logged in
-            serviceRequest.style.display = "block"; // Show the service request when logged in
-            serviceOrdersList.style.display = "none" // Hide the service orders list
-            clientLoadRequests(currentUser); // Let the logged in user view their service order & bill if Anna generated them
-            queriesSection.style.display = "none"; // Show the queries section
-            queryResults.style.display = "none"; // Hide the query results table, until a query is made
-            if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on login
-        } else if (isAnnaUser) {
-            signupSection.style.display = "none"; // Hide Sign Up section if Anna Johnson is the DB user
-            loginSection.style.display = "none"; // Hide Login section if Anna Johnson is the DB user
-            serviceRequest.style.display = "none" // Hide the service request if Anna Johnson is the DB user
-            serviceOrdersList.style.display = "block" // Show the service orders list if Anna Johnson is the DB user
-            queriesSection.style.display = 'block'; // Show the queries section if Anna Johnson is the DB user
-            document.getElementById("client-requests").innerHTML = ""; // Clear the client requests HTML
-            const pendingQuotesSection = document.getElementById("pending-quotes-section");
-            pendingQuotesSection.style.display = "block";
-            fetch('/pendingRequests')  // <-- backend endpoint you created
+    if (currentUser && !isAnnaUser) {
+        // CLIENT VIEW
+        signupSection.style.display = "none";
+        loginSection.style.display = "none";
+        profileSection.style.display = "flex";
+        profileName.textContent = currentUser;
+        logoutBtn.style.display = "none";
+        serviceRequest.style.display = "block";
+        serviceOrdersList.style.display = "none";
+        queriesSection.style.display = "none";
+        queryResults.style.display = "none";
+        if (queryBody) queryBody.innerHTML = '';
+        clientLoadRequests(currentUser); // show client requests with quotes/orders/bills
+
+    } else if (isAnnaUser) {
+        // ANNA VIEW
+        signupSection.style.display = "none";
+        loginSection.style.display = "none";
+        profileSection.style.display = "flex";
+        profileName.textContent = "Anna Johnson";
+        serviceRequest.style.display = "none";
+        serviceOrdersList.style.display = "block";
+        queriesSection.style.display = "block";
+        document.getElementById("client-requests").innerHTML = "";
+        const pendingQuotesSection = document.getElementById("pending-quotes-section");
+        pendingQuotesSection.style.display = "block";
+        fetch('/pendingRequests')
             .then(res => res.json())
-            .then(data => {
-                renderAnnaQuoteUI(data.requests); // render the inputs/buttons
-            });
-        }
-        else {
-            signupSection.style.display = "block"; // Hide Sign Up section when not logged in by default
-            loginSection.style.display = "none"; // Show Login section when not logged in by default
-            profileSection.style.display = "none"; // Hide the profile section
-            serviceRequest.style.display = "none" // Hide the service request when not logged in
-            inputFields.forEach(input => input.value = ""); // Clear all input fields when not logged in
-            photoFields.innerHTML = ''; // Remove all added photo fields
-            photoNum = 0; // Reset counter
-            addPhotoButton.style.display = 'inline-block'; // Show the Add Photo button again
-            serviceOrdersList.style.display = "none" // Hide the service orders list
-            queriesSection.style.display = "none"; // Hide the queries section
-            queryResults.style.display = "none"; // Hide the query results table
-            if (queryBody) queryBody.innerHTML = ''; // Clear the query results table on sign out
-            document.getElementById("client-requests").innerHTML = ""; // Clear the client requests HTML
-        }
+            .then(data => renderAnnaQuoteUI(data.requests));
+    } else {
+        // NOT LOGGED IN
+        signupSection.style.display = "block";
+        loginSection.style.display = "none";
+        profileSection.style.display = "none";
+        serviceRequest.style.display = "none";
+        inputFields.forEach(input => input.value = "");
+        photoFields.innerHTML = '';
+        photoNum = 0;
+        addPhotoButton.style.display = 'inline-block';
+        serviceOrdersList.style.display = "none";
+        queriesSection.style.display = "none";
+        queryResults.style.display = "none";
+        if (queryBody) queryBody.innerHTML = '';
+        document.getElementById("client-requests").innerHTML = "";
     }
+}
 
     // Check the login status on page load
     updateUI();

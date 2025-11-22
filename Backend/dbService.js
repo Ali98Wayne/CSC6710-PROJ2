@@ -683,12 +683,36 @@ async clientLoadRequests(username) {
   try {
     const result = await new Promise((resolve, reject) => {
       const query = `
-        SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
-               r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-               r.notes, q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status
+        SELECT 
+          r.request_id,
+          r.service_address_street,
+          r.service_address_city,
+          r.service_address_state,
+          r.service_address_zip,
+          r.cleaning_type,
+          r.rooms,
+          r.preferred_date,
+          r.proposed_budget,
+          r.notes,
+          r.order_generated,
+          b.bill_id,
+          b.bill_amount,
+          b.status AS bill_status,
+          q.quote_price,
+          q.note AS quote_note,
+          q.status AS quote_status
         FROM Request_Cleaning r
         LEFT JOIN Users u ON r.client_id = u.user_id
-        LEFT JOIN Quotes q ON r.request_id = q.request_id
+        LEFT JOIN (
+          SELECT q1.*
+          FROM Quotes q1
+          INNER JOIN (
+            SELECT request_id, MAX(quote_id) AS max_quote_id
+            FROM Quotes
+            GROUP BY request_id
+          ) q2 ON q1.request_id = q2.request_id AND q1.quote_id = q2.max_quote_id
+        ) q ON r.request_id = q.request_id
+        LEFT JOIN Bills b ON r.request_id = b.request_id
         WHERE u.username = ?
         ORDER BY r.request_date ASC
       `;
