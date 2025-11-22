@@ -287,7 +287,7 @@ function rejectRequest(requestId) {
     });
 
     // Show/hide the profile section based on user login status, hide logout button by default, only show the queries section for Anna Johnson
-    function updateUI() {
+function updateUI() {
     const currentUser = localStorage.getItem("loggedInUser");
     const profileSection = document.querySelector("#profile-section");
     const profileName = document.querySelector("#profile-name");
@@ -297,8 +297,7 @@ function rejectRequest(requestId) {
     const queryResults = document.querySelector("#query-results");
     const queryBody = document.querySelector('#query-results tbody');
 
-    if (currentUser && !isAnnaUser) {
-        // CLIENT VIEW
+    if (currentUser) {
         signupSection.style.display = "none";
         loginSection.style.display = "none";
         profileSection.style.display = "flex";
@@ -309,25 +308,22 @@ function rejectRequest(requestId) {
         queriesSection.style.display = "none";
         queryResults.style.display = "none";
         if (queryBody) queryBody.innerHTML = '';
-        clientLoadRequests(currentUser); // show client requests with quotes/orders/bills
-
+        clientLoadRequests(currentUser); // Load quotes and bills for the client
     } else if (isAnnaUser) {
-        // ANNA VIEW
         signupSection.style.display = "none";
         loginSection.style.display = "none";
-        profileSection.style.display = "flex";
-        profileName.textContent = "Anna Johnson";
         serviceRequest.style.display = "none";
         serviceOrdersList.style.display = "block";
-        queriesSection.style.display = "block";
+        queriesSection.style.display = 'block';
         document.getElementById("client-requests").innerHTML = "";
         const pendingQuotesSection = document.getElementById("pending-quotes-section");
         pendingQuotesSection.style.display = "block";
         fetch('/pendingRequests')
-            .then(res => res.json())
-            .then(data => renderAnnaQuoteUI(data.requests));
+        .then(res => res.json())
+        .then(data => {
+            renderAnnaQuoteUI(data.requests);
+        });
     } else {
-        // NOT LOGGED IN
         signupSection.style.display = "block";
         loginSection.style.display = "none";
         profileSection.style.display = "none";
@@ -898,17 +894,28 @@ function clientLoadRequests(username) {
         innerHTML += `<strong>Request ID:</strong> ${req.request_id} | <strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
         innerHTML += `<strong>Cleaning Type:</strong> ${req.cleaning_type} | <strong>Rooms:</strong> ${req.rooms} | <strong>Proposed Budget:</strong> $${req.proposed_budget}<br>`;
 
-        if (!req.quote_status) {
+        // Show quote or message
+        if (!req.quote_status && (!req.bills || req.bills.length === 0)) {
           innerHTML += `<span style="color:orange;">No quote yet. Waiting for Anna...</span>`;
         } else if (req.quote_status === "rejected") {
           innerHTML += `<span style="color:red;">Quote rejected by Anna</span><br>`;
-          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit</button>`; // ← NEW
+          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit</button>`;
         } else if (req.quote_status === "quoted") {
           innerHTML += `<span style="color:blue;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note}</span><br>`;
           innerHTML += `<button onclick="acceptQuote(${req.request_id})">Accept</button> `;
           innerHTML += `<button onclick="counterQuote(${req.request_id})">Counter / Negotiate</button>`;
         } else if (req.quote_status === "accepted") {
           innerHTML += `<span style="color:green;">Quote accepted ✅</span>`;
+        }
+
+        // Show bills if any
+        if (req.bills && req.bills.length > 0) {
+          innerHTML += `<div style="margin-top:5px;"><strong>Bills:</strong><ul>`;
+          req.bills.forEach(bill => {
+            const color = bill.bill_status === "Paid" ? "green" : "red";
+            innerHTML += `<li style="color:${color}">Bill ID: ${bill.bill_id} | Amount: $${bill.bill_amount} | Status: ${bill.bill_status} | Due: ${bill.due_date}</li>`;
+          });
+          innerHTML += `</ul></div>`;
         }
 
         innerHTML += `</div>`;
@@ -918,7 +925,6 @@ function clientLoadRequests(username) {
     })
     .catch(err => console.error(err));
 }
-
 // Accept the latest quote
 function acceptQuote(requestId) {
   fetch('/updateQuote', {

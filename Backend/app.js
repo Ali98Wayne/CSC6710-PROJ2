@@ -266,10 +266,10 @@ app.get('/clientLoadRequests/:username', async (req, res) => {
   const db = dbService.getDbServiceInstance();
 
   try {
-    const requests = await db.clientLoadRequests(username); // make sure this query returns all needed fields
+    const requests = await db.clientLoadRequests(username);
 
-    if (!requests || requests.length === 0) {
-      return res.json({ success: false, error: "No requests found for this user" });
+    if (!requests) {
+      return res.json({ success: false, error: "Username Not Found" });
     }
 
     res.json({ success: true, requests });
