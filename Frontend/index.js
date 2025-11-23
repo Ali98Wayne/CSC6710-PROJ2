@@ -308,7 +308,8 @@ function updateUI() {
         queriesSection.style.display = "none";
         queryResults.style.display = "none";
         if (queryBody) queryBody.innerHTML = '';
-        clientLoadRequests(currentUser); // Load quotes and bills for the client
+    clientLoadRequests(currentUser); // Load requests (includes quotes + nested bills)
+    loadBills(currentUser); 
     } else if (isAnnaUser) {
         signupSection.style.display = "none";
         loginSection.style.display = "none";
@@ -925,6 +926,127 @@ function clientLoadRequests(username) {
     })
     .catch(err => console.error(err));
 }
+
+function renderBills(bills) {
+  const billsList = document.getElementById('bills-list');
+  if (!billsList) return;
+  billsList.innerHTML = '';
+
+  if (!bills || bills.length === 0) {
+    billsList.innerHTML = '<div>No bills found.</div>';
+    return;
+  }
+
+  bills.forEach(bill => {
+    const div = document.createElement('div');
+    div.className = 'bill-item';
+    const due = new Date(bill.due_date).toLocaleDateString();
+    div.innerHTML = `
+      <strong>Bill ID:</strong> ${bill.bill_id} |
+      <strong>Amount:</strong> $${Number(bill.bill_amount).toFixed(2)} |
+      <strong>Status:</strong> ${bill.status} |
+      <strong>Due:</strong> ${due}
+      <div style="margin-top:6px;">
+        ${bill.status !== 'Paid' ? `<button class="pay-bill-btn" data-id="${bill.bill_id}">Pay</button>` : ''}
+        ${bill.status !== 'Paid' ? `<button class="dispute-bill-btn" data-id="${bill.bill_id}">Dispute</button>` : ''}
+        <button class="view-bill-btn" data-id="${bill.bill_id}">View</button>
+      </div>
+    `;
+    billsList.appendChild(div);
+  });
+
+  // attach handlers
+  billsList.querySelectorAll('.pay-bill-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const billId = e.target.dataset.id;
+      await payBill(billId);
+    });
+  });
+
+  billsList.querySelectorAll('.dispute-bill-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const billId = e.target.dataset.id;
+      const note = prompt('Enter dispute note:');
+      if (note === null) return; // cancelled
+      await disputeBill(billId, note);
+    });
+  });
+
+  billsList.querySelectorAll('.view-bill-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const billId = e.target.dataset.id;
+      // simple view - open new tab with bill details endpoint if you have one
+      // fallback: alert minimal info
+      alert('Open the Requests/Bills UI or implement a dedicated view endpoint.');
+    });
+  });
+}
+
+async function loadBills(username) {
+  if (!username) return;
+  try {
+    const res = await fetch(`/clientLoadRequests/${encodeURIComponent(username)}`);
+    const data = await res.json();
+    if (!data.success) return;
+    // collect all bills from all requests into a single array
+    const bills = [];
+    data.requests.forEach(req => {
+      if (req.bills && Array.isArray(req.bills)) {
+        req.bills.forEach(b => bills.push(b));
+      }
+    });
+    renderBills(bills);
+  } catch (err) {
+    console.error('Failed to load bills:', err);
+  }
+}
+
+async function payBill(billId) {
+  const username = localStorage.getItem('loggedInUser');
+  if (!username) { alert('Not logged in'); return; }
+  try {
+    const res = await fetch('/client/pay-bill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, billId, note: 'Paid via UI' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('Payment recorded.');
+      loadBills(username);
+      clientLoadRequests(username); // refresh both lists
+    } else {
+      alert('Payment error: ' + (data.error || 'Unknown'));
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Payment failed.');
+  }
+}
+
+async function disputeBill(billId, note) {
+  const username = localStorage.getItem('loggedInUser');
+  if (!username) { alert('Not logged in'); return; }
+  try {
+    const res = await fetch('/client/dispute-bill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, billId, note })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert('Dispute submitted.');
+      loadBills(username);
+      clientLoadRequests(username); // refresh lists
+    } else {
+      alert('Dispute error: ' + (data.error || 'Unknown'));
+    }
+  } catch (err) {
+    console.error(err);
+    alert('Failed to submit dispute.');
+  }
+}
+
 // Accept the latest quote
 function acceptQuote(requestId) {
   fetch('/updateQuote', {
