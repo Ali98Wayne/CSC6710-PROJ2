@@ -880,51 +880,42 @@ async function viewServiceBill(requestId) {
 // Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
 // Load a list of service requests for the logged-in client
 function clientLoadRequests(username) {
-  fetch(`/clientLoadRequests/${username}`)
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) {
-        console.error(data.error);
-        return;
-      }
+    // Fetch service requests for the given username
+    fetch(`/clientLoadRequests/${username}`)
+        .then(response => response.json())
+        .then(data => {
+            let innerHTML = "";
 
-      let innerHTML = "";
+            // Loop through each request
+            data.requests.forEach(req => {
+                innerHTML += `<div class="client-request" style="margin-bottom:15px;">`;
+                innerHTML += `<strong>Request ID:</strong> ${req.request_id} | <strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
+                innerHTML += `<strong>Cleaning Type:</strong> ${req.cleaning_type} | <strong>Rooms:</strong> ${req.rooms} | <strong>Proposed Budget:</strong> $${req.proposed_budget}<br>`;
 
-      data.requests.forEach(req => {
-        innerHTML += `<div class="client-request" style="margin-bottom:15px;">`;
-        innerHTML += `<strong>Request ID:</strong> ${req.request_id} | <strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
-        innerHTML += `<strong>Cleaning Type:</strong> ${req.cleaning_type} | <strong>Rooms:</strong> ${req.rooms} | <strong>Proposed Budget:</strong> $${req.proposed_budget}<br>`;
+                // Show Service Order button or pending message
+                if (req.order_generated) {
+                    innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement for Request ID: ${req.request_id}</button>`;
+                } else {
+                    innerHTML += `<span>Service Order for Request ${req.request_id} is Pending</span>`;
+                }
 
-        // Show quote or message
-        if (!req.quote_status && (!req.bills || req.bills.length === 0)) {
-          innerHTML += `<span style="color:orange;">No quote yet. Waiting for Anna...</span>`;
-        } else if (req.quote_status === "rejected") {
-          innerHTML += `<span style="color:red;">Quote rejected by Anna</span><br>`;
-          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit</button>`;
-        } else if (req.quote_status === "quoted") {
-          innerHTML += `<span style="color:blue;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note}</span><br>`;
-          innerHTML += `<button onclick="acceptQuote(${req.request_id})">Accept</button> `;
-          innerHTML += `<button onclick="counterQuote(${req.request_id})">Counter / Negotiate</button>`;
-        } else if (req.quote_status === "accepted") {
-          innerHTML += `<span style="color:green;">Quote accepted ✅</span>`;
-        }
+                innerHTML += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;"; // spacing between buttons
 
-        // Show bills if any
-        if (req.bills && req.bills.length > 0) {
-          innerHTML += `<div style="margin-top:5px;"><strong>Bills:</strong><ul>`;
-          req.bills.forEach(bill => {
-            const color = bill.bill_status === "Paid" ? "green" : "red";
-            innerHTML += `<li style="color:${color}">Bill ID: ${bill.bill_id} | Amount: $${bill.bill_amount} | Status: ${bill.bill_status} | Due: ${bill.due_date}</li>`;
-          });
-          innerHTML += `</ul></div>`;
-        }
+                // Show Bill button or pending message
+                if (req.bill_generated) {
+                    innerHTML += `<button onclick="viewServiceBill(${req.request_id})">View Bill for Request ID: ${req.request_id}</button>`;
+                } else {
+                    innerHTML += `<span>Service Bill for Request ${req.request_id} is Pending</span>`;
+                }
 
-        innerHTML += `</div>`;
-      });
+                innerHTML += "<br>";
+                innerHTML += `</div>`;
+            });
 
-      document.getElementById("client-requests").innerHTML = innerHTML;
-    })
-    .catch(err => console.error(err));
+            // Update the client requests section
+            document.getElementById("client-requests").innerHTML = innerHTML;
+        })
+        .catch(err => console.error(err));
 }
 
 function renderBills(bills) {

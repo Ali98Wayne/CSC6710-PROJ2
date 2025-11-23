@@ -681,12 +681,13 @@ async getPendingRequestsForAnna() {
 
 async clientLoadRequests(username) {
   try {
-    // 1. Get all requests with their latest Anna quote (if any)
+    // 1. Get all requests with latest Anna quote (if any) and order/bill flags
     const requests = await new Promise((resolve, reject) => {
       const query = `
         SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
                r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-               r.notes, q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status
+               r.notes, r.order_generated, r.bill_generated,
+               q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status
         FROM Request_Cleaning r
         LEFT JOIN Users u ON r.client_id = u.user_id
         LEFT JOIN Quotes q ON r.request_id = q.request_id AND q.responder_type='Anna'
