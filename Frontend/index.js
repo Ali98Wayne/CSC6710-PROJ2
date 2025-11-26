@@ -912,7 +912,8 @@ function clientLoadRequests(username) {
           innerHTML += `<div style="color:orange; margin-top:8px;">No quote yet. Waiting for Anna...</div>`;
         } else if (req.quote_status === "rejected") {
           innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
-          innerHTML += `<div style="margin-top:8px;"><button onclick="resubmitRequest(${req.request_id})">Resubmit</button></div>`;
+          innerHTML += `<div style="margin-top:8px;"><button onclick="resubmitRequest(${req.request_id})">Resubmit</button>
+          <button onclick="resubmitRequest(${req.request_id})">Dispute</button></div>`;
         } else if (req.quote_status === "quoted") {
           innerHTML += `<div style="color:blue; margin-top:8px;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note || ''}</div>`;
           innerHTML += `<div style="margin-top:8px;">
@@ -955,8 +956,7 @@ function clientLoadRequests(username) {
             : `
               <div class="bill-buttons" style="margin-top:6px;">
                 <button onclick="openPayForm(${bill.bill_id}, ${req.request_id})">Pay</button>
-                <button onclick="alert('Dispute functionality coming soon')">Dispute</button>
-              </div>
+                <button onclick="resubmitRequest(${req.request_id})">Dispute</button>
               <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
             `
         }
