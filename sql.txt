@@ -21,7 +21,7 @@ CREATE TABLE Users(
    last_login DATETIME,
    order_generated TINYINT(1) DEFAULT 0,
    bill_generated TINYINT(1) DEFAULT 0
-)
+);
 
 CREATE TABLE Request_Cleaning(
    request_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -35,32 +35,30 @@ CREATE TABLE Request_Cleaning(
    preferred_date DATETIME,
    proposed_budget FLOAT,
    notes TEXT NULL,
-   photo_urls JSON NULL;
+   photo_urls JSON NULL,
    request_date DATE DEFAULT CURRENT_DATE,
    quote_accept_date DATE,
    bill_status ENUM('Paid', 'Unpaid'),
    bill_due_date DATE,
    FOREIGN KEY (client_id) REFERENCES Users(user_id)
-)
+);
 
 CREATE TABLE Quotes (
     quote_id INT AUTO_INCREMENT PRIMARY KEY,
     request_id INT NOT NULL,
     responder_id INT NOT NULL, -- Anna's user_id
-    quote_price DECIMAL(10,2) NOT NULL,
-    scheduled_start DATETIME NOT NULL,
-    scheduled_end DATETIME NOT NULL,
+    responder_type ENUM('Anna','Client') NOT NULL DEFAULT 'Anna',
+    quote_price DECIMAL(10,2) NULL,
+    scheduled_start DATETIME NULL,
+    scheduled_end DATETIME NULL,
     note TEXT,
+    response_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status ENUM('pending','accepted','rejected','countered') DEFAULT 'pending',
+    round INT DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)
-) ENGINE=InnoDB;
-
-ALTER TABLE Quotes
-ADD COLUMN round INT DEFAULT 1 AFTER status,
-ADD COLUMN responder_type ENUM('Anna','Client') NOT NULL DEFAULT 'Anna' AFTER responder_id,
-ADD COLUMN response_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER note;
+);
 
 CREATE TABLE Bills (
     bill_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -75,7 +73,7 @@ CREATE TABLE Bills (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_bill_client FOREIGN KEY (client_id) REFERENCES Users(user_id)
-) ENGINE=InnoDB;
+);
 
 CREATE TABLE IF NOT EXISTS Bill_History (
     history_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -87,14 +85,4 @@ CREATE TABLE IF NOT EXISTS Bill_History (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_history_bill FOREIGN KEY (bill_id) REFERENCES Bills(bill_id),
     CONSTRAINT fk_bill_history_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)
-) ENGINE=InnoDB;
-
-ALTER TABLE Request_Cleaning
-ADD COLUMN order_generated TINYINT(1) DEFAULT 0,
-ADD COLUMN bill_generated TINYINT(1) DEFAULT 0;
-
-Expand Requery Edit Bookmark Database : Queried time : 16:41:14
-ALTER TABLE request_cleaning ADD COLUMN photo_urls JSON NULL;
-ALTER TABLE Request_Cleaning ADD COLUMN order_generated TINYINT(1) DEFAULT 0, ADD COLUMN bill_generated TINYINT(1) DEFAULT 0;
-ALTER TABLE quotes MODIFY quote_price DECIMAL(10,2) NULL;
-ALTER TABLE quotes MODIFY quote_price DECIMAL(10,2) NULL, MODIFY scheduled_start DATETIME NULL, MODIFY scheduled_end DATETIME NULL;
+);
