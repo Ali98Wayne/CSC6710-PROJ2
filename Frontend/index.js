@@ -880,6 +880,7 @@ async function viewServiceBill(requestId) {
 // Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
 // Load a list of service requests for the logged-in client
 function clientLoadRequests(username) {
+  // fetch server endpoint that returns requests (with nested bills)
   fetch(`/clientLoadRequests/${username}`)
     .then(res => res.json())
     .then(data => {
@@ -888,48 +889,187 @@ function clientLoadRequests(username) {
         return;
       }
 
+      // build a centered, boxed layout for each request (keeps your logic/comments intact)
       let innerHTML = "";
 
       data.requests.forEach(req => {
-        // Centered blue outline box with padding, margin, and max-width
         innerHTML += `<div class="client-request" style="
-          margin: 20px auto; /* vertical spacing + center horizontally */
-          padding: 10px;
-          border: 2px solid #00bfff;
+          margin: 20px auto;
+          padding: 15px;
+          border: 2px solid #007BFF;
           border-radius: 6px;
           max-width: 600px;
+          text-align: center;
+          background: transparent;
         ">`;
 
-        innerHTML += `<strong>Request ID:</strong> ${req.request_id} | <strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
+        innerHTML += `<strong>Request ID:</strong> ${req.request_id} <br>`;
+        innerHTML += `<strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
         innerHTML += `<strong>Cleaning Type:</strong> ${req.cleaning_type} | <strong>Rooms:</strong> ${req.rooms} | <strong>Proposed Budget:</strong> $${req.proposed_budget}<br>`;
 
-        // Show quote or message
+        // Show quote or message (preserve your original logic)
         if (!req.quote_status && (!req.bills || req.bills.length === 0)) {
-          innerHTML += `<span style="color:orange;">No quote yet. Waiting for Anna...</span>`;
+          innerHTML += `<div style="color:orange; margin-top:8px;">No quote yet. Waiting for Anna...</div>`;
         } else if (req.quote_status === "rejected") {
-          innerHTML += `<span style="color:red;">Quote rejected by Anna</span><br>`;
-          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit</button>`;
+          innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
+          innerHTML += `<div style="margin-top:8px;"><button onclick="resubmitRequest(${req.request_id})">Resubmit</button></div>`;
         } else if (req.quote_status === "quoted") {
-          innerHTML += `<span style="color:blue;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note}</span><br>`;
-          innerHTML += `<button onclick="acceptQuote(${req.request_id})">Accept</button> `;
-          innerHTML += `<button onclick="counterQuote(${req.request_id})">Counter / Negotiate</button>`;
+          innerHTML += `<div style="color:blue; margin-top:8px;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note || ''}</div>`;
+          innerHTML += `<div style="margin-top:8px;">
+            <button onclick="acceptQuote(${req.request_id})">Accept</button> 
+            <button onclick="counterQuote(${req.request_id})">Counter / Negotiate</button>
+          </div>`;
         } else if (req.quote_status === "accepted") {
-          innerHTML += `<span style="color:green;">Quote accepted ✅</span>`;
+          innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
         }
 
-        // Show/hide service order & bill buttons
-        if (req.order_generated) innerHTML += `<br><button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
-        else innerHTML += `<br><span>Service Order is Pending</span>`;
-        innerHTML += "&nbsp;&nbsp;&nbsp;&nbsp;";
-        if (req.bill_generated) innerHTML += `<button onclick="viewServiceBill(${req.request_id})">View Bill</button>`;
-        else innerHTML += `<span>Service Bill is Pending</span>`;
+        // Show service order button if generated
+        innerHTML += `<div style="margin-top:10px;">`;
+        if (req.order_generated) {
+          innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
+        } else {
+          innerHTML += `<span>Service Order is Pending</span>`;
+        }
+        innerHTML += `</div>`;
 
-        innerHTML += `</div>`; // close request div
+        // Show bills (Pay + Dispute inside each box)
+        if (req.bills && req.bills.length > 0) {
+          innerHTML += `<div style="margin-top:12px;"><strong>Bills:</strong></div>`;
+        req.bills.forEach(bill => {
+        const color = (bill.bill_status && bill.bill_status.toLowerCase() === "paid") ? "green" : "red";
+        let due = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A';
+
+  innerHTML += `
+    <div class="bill-section-${bill.bill_id}-${req.request_id}" 
+         style="margin-top:12px; padding: 12px; border: 2px solid #007BFF; border-radius: 6px; 
+                max-width: 500px; margin-left:auto; margin-right:auto; background: transparent;">
+      
+      <div style="font-weight:bold; color:${color};">
+        Amount: $${Number(bill.bill_amount).toFixed(2)} | Status: ${bill.bill_status || 'Undefined'} | Due: ${due}
+      </div>
+      
+      <div id="bill-actions-${bill.bill_id}" style="margin-top:10px;">
+        ${
+          bill.bill_status && bill.bill_status.toLowerCase() === "paid"
+            ? `<div style="color:green; margin-top:6px;">Payment submitted successfully.</div>`
+            : `
+              <div class="bill-buttons" style="margin-top:6px;">
+                <button onclick="openPayForm(${bill.bill_id}, ${req.request_id})">Pay</button>
+                <button onclick="alert('Dispute functionality coming soon')">Dispute</button>
+              </div>
+              <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
+            `
+        }
+      </div>
+    </div>
+  `;
+});
+        }
+
+        innerHTML += `</div>`; // close client-request box
       });
 
       document.getElementById("client-requests").innerHTML = innerHTML;
     })
     .catch(err => console.error(err));
+}
+
+// open a simple Pay modal/form (no real transaction) — keeps comments and is purely front-end for project
+function openPayForm(billId, requestId) {
+  // remove any existing modal
+  const existing = document.getElementById('pay-form-modal');
+  if (existing) existing.remove();
+
+  const formHTML = `
+    <div id="pay-form-modal" style="
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.2); 
+      display:flex; align-items:center; justify-content:center; z-index:9999;
+    ">
+      <div style="
+        background: black;
+        padding: 18px; 
+        border-radius: 8px; 
+        min-width: 320px; 
+        border: 3px solid #007BFF;
+        box-shadow: 0px 0px 15px rgba(0,0,0,0.2);
+      ">
+        <h3 style="margin-top:0; color:#007BFF; text-align:center;">
+          Pay Bill ID: ${billId}
+        </h3>
+
+        <div style="text-align:left;">
+          <label>Name on Card:</label><br>
+          <input type="text" id="pay-name" style="width:100%;"><br><br>
+
+          <label>Card Number:</label><br>
+          <input type="text" id="pay-card" maxlength="19" style="width:100%;"><br><br>
+
+          <label>Expiry (MM/YY):</label><br>
+          <input type="text" id="pay-exp" maxlength="5" placeholder="MM/YY" style="width:100%;"><br><br>
+
+          <label>CVV:</label><br>
+          <input type="text" id="pay-cvv" maxlength="4" style="width:100%;"><br><br>
+        </div>
+
+        <div style="text-align:right;">
+          <button id="pay-submit-btn">Pay</button>
+          <button id="pay-cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', formHTML);
+
+  document.getElementById('pay-cancel-btn').addEventListener('click', closePayForm);
+  document.getElementById('pay-submit-btn').addEventListener('click', () => submitPay(billId, requestId));
+}
+
+function closePayForm() {
+  const modal = document.getElementById('pay-form-modal');
+  if (modal) modal.remove();
+}
+
+// Simulated payment submission — purely front end for the project (keeps original logic/comments)
+async function submitPay(billId, requestId) {
+  const name = document.getElementById('pay-name').value.trim();
+  const card = document.getElementById('pay-card').value.trim();
+  const exp = document.getElementById('pay-exp').value.trim();
+  const cvv = document.getElementById('pay-cvv').value.trim();
+
+  if (!name || !card || !exp || !cvv) {
+    alert("Please fill out all payment fields.");
+    return;
+  }
+
+  // close the popup
+  closePayForm();
+
+  // find the bill container
+  const billSection = document.querySelector(`.bill-section-${billId}-${requestId}`);
+  if (!billSection) return;
+
+  // update the bill UI to "paid"
+  billSection.innerHTML = `
+    <div style="
+      margin-top:10px;
+      padding:12px;
+      border:2px solid #007BFF;
+      border-radius:6px;
+      background: transparent;
+      color: green;
+      font-weight: bold;
+      text-align:center;
+    ">
+      Payment Submitted Successfully ✅<br><br>
+      Name: ${name}<br>
+      Card Ending: **** ${card.slice(-4)}<br>
+      Thank you for your payment!
+    </div>
+  `;
+
+  // optionally refresh UI (this does NOT reload payment state)
+
 }
 
 function renderBills(bills) {

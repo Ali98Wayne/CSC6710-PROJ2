@@ -320,6 +320,21 @@ app.post('/resubmitRequest', async (req, res) => {
   }
 });
 
+app.post('/client/pay-bill', async (req, res) => {
+    const { billId, username } = req.body;
+    if (!billId || !username) return res.json({ success: false, error: 'Missing info' });
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.payBill(billId);  // <-- use the new dbService method
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // Listen on the fixed port: 5050
 app.listen(5050, () => {
 });

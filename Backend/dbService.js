@@ -245,42 +245,15 @@ class DbService{
     }
 
     // function to mark a bill as paid (client pays immediately)
-    async payBill(client_username, billId, paymentNote = null) {
-        try {
-            // resolve client id
-            const clientId = await new Promise((resolve, reject) => {
-                const q = "SELECT user_id FROM Users WHERE username = ?";
-                connection.query(q, [client_username], (err, results) => {
-                    if (err) reject(err);
-                    else if (!results || results.length === 0) reject(new Error("Client not found"));
-                    else resolve(results[0].user_id);
-                });
-            });
-
-            // update bill status and payment_date
-            await new Promise((resolve, reject) => {
-                const q = `
-                    UPDATE Bills
-                    SET status = 'Paid', payment_date = CURRENT_DATE
-                    WHERE bill_id = ?
-                `;
-                connection.query(q, [billId], (err, res) => err ? reject(err) : resolve(res));
-            });
-
-            // record the payment in Bill_History (so every action is stored)
-            await new Promise((resolve, reject) => {
-                const q = `
-                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note, new_amount)
-                    VALUES (?, ?, 'Client', ?, NULL)
-                `;
-                connection.query(q, [billId, clientId, paymentNote ?? 'Payment recorded'], (err, res) => err ? reject(err) : resolve(res));
-            });
-
-            return { success: true };
-        } catch (err) {
-            throw err;
-        }
+async payBill(billId) {
+    try {
+        const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
+        const [result] = await this.pool.promise().query(query, [billId]);
+        return result;
+    } catch (err) {
+        throw err;
     }
+}
 
     // function to allow a client to dispute a bill (adds a Bill_History entry and sets status to 'Disputed')
     async disputeBill(client_username, billId, note) {
@@ -376,6 +349,16 @@ class DbService{
             throw err;
         }
     }
+
+async payBill(billId) {
+    try {
+        const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
+        const [result] = await this.pool.promise().query(query, [billId]);
+        return result;
+    } catch (err) {
+        throw err;
+    }
+}
 
 
      async mostServiceOrders(){
@@ -632,28 +615,63 @@ async goodClients() {
         }
     }
     
-    async generateServiceBill(requestId) {
-            try {
-                await new Promise((resolve, reject) => {
-                    const query = `UPDATE Request_Cleaning SET bill_status = 'Unpaid', bill_due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY) WHERE request_id = ?;`;
-                    connection.query(query, [requestId], (err, results) => {
-                        if (err) reject(new Error(err.message));
-                        else resolve(results);
-                    });
-                });
+async generateServiceBill(requestId) {
+    try {
 
-                await new Promise((resolve, reject) => {
-                    const query = `UPDATE Request_Cleaning SET bill_generated = 1 WHERE request_id = ? AND bill_generated = 0;`;
-                    connection.query(query, [requestId], (err, results) => {
-                        if (err) reject(new Error(err.message));
-                        else resolve(results);
-                    });
-                });
-                return { success: true };
-            } catch (err) {
-                throw err;
-            }
+        const requestInfo = await new Promise((resolve, reject) => {
+            const query = `
+                SELECT client_id, proposed_budget 
+                FROM Request_Cleaning 
+                WHERE request_id = ?;
+            `;
+            connection.query(query, [requestId], (err, rows) => {
+                if (err) reject(new Error(err.message));
+                else resolve(rows[0]);
+            });
+        });
+
+        if (!requestInfo) {
+            throw new Error("Request not found.");
+        }
+
+        const { client_id, proposed_budget } = requestInfo;
+
+        const insertResult = await new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO Bills (request_id, client_id, bill_amount, status, due_date)
+                VALUES (?, ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
+            `;
+            connection.query(
+                query,
+                [requestId, client_id, proposed_budget],
+                (err, result) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(result);
+                }
+            );
+        });
+
+        const billId = insertResult.insertId;
+
+        await new Promise((resolve, reject) => {
+            const query = `
+                UPDATE Request_Cleaning 
+                SET bill_generated = 1, bill_status = 'Unpaid'
+                WHERE request_id = ?;
+            `;
+            connection.query(query, [requestId], (err, result) => {
+                if (err) reject(new Error(err.message));
+                else resolve(result);
+            });
+        });
+
+        return { success: true, billId };
+
+    } catch (err) {
+        throw err;
     }
+}
+
 async getPendingRequestsForAnna() {
     try {
         const response = await new Promise((resolve, reject) => {
