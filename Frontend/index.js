@@ -903,26 +903,13 @@ function clientLoadRequests(username) {
           background: transparent;
         ">`;
 
-        innerHTML += `<strong>Request ID:</strong> ${req.request_id} <br>`;
-        innerHTML += `<strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}<br>`;
-        innerHTML += `<strong>Cleaning Type:</strong> ${req.cleaning_type} | <strong>Rooms:</strong> ${req.rooms} | <strong>Proposed Budget:</strong> $${req.proposed_budget}<br>`;
-
-        // Show quote or message (preserve your original logic)
-        if (!req.quote_status && (!req.bills || req.bills.length === 0)) {
-          innerHTML += `<div style="color:orange; margin-top:8px;">No quote yet. Waiting for Anna...</div>`;
-        } else if (req.quote_status === "rejected") {
-          innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
-          innerHTML += `<div style="margin-top:8px;"><button onclick="resubmitRequest(${req.request_id})">Resubmit</button>
-          <button onclick="resubmitRequest(${req.request_id})">Dispute</button></div>`;
-        } else if (req.quote_status === "quoted") {
-          innerHTML += `<div style="color:blue; margin-top:8px;">Quoted Price: $${req.quote_price} | Note: ${req.quote_note || ''}</div>`;
-          innerHTML += `<div style="margin-top:8px;">
-            <button onclick="acceptQuote(${req.request_id})">Accept</button> 
-            <button onclick="counterQuote(${req.request_id})">Counter / Negotiate</button>
-          </div>`;
-        } else if (req.quote_status === "accepted") {
-          innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
-        }
+        // Use Anna's quote info, match her dashboard format
+        innerHTML += `<strong>Request #${req.request_id} from ${req.client_username || 'undefined'}</strong><br><br>`;
+        innerHTML += `Quote Price<br>`;
+        innerHTML += `$${req.quote_price != null ? Number(req.quote_price).toFixed(2) : ''}<br><br>`;
+        innerHTML += `${req.scheduled_start ? new Date(req.scheduled_start).toLocaleString() : 'mm/dd/yyyy --:-- --'}<br><br>`;
+        innerHTML += `${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : 'mm/dd/yyyy --:-- --'}<br><br>`;
+        innerHTML += `Note<br>${req.quote_note || ''}<br>`;
 
         // Show service order button if generated
         innerHTML += `<div style="margin-top:10px;">`;
@@ -936,34 +923,34 @@ function clientLoadRequests(username) {
         // Show bills (Pay + Dispute inside each box)
         if (req.bills && req.bills.length > 0) {
           innerHTML += `<div style="margin-top:12px;"><strong>Bills:</strong></div>`;
-        req.bills.forEach(bill => {
-        const color = (bill.bill_status && bill.bill_status.toLowerCase() === "paid") ? "green" : "red";
-        let due = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A';
+          req.bills.forEach(bill => {
+            const color = (bill.bill_status && bill.bill_status.toLowerCase() === "paid") ? "green" : "red";
+            let due = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A';
 
-  innerHTML += `
-    <div class="bill-section-${bill.bill_id}-${req.request_id}" 
-         style="margin-top:12px; padding: 12px; border: 2px solid #007BFF; border-radius: 6px; 
-                max-width: 500px; margin-left:auto; margin-right:auto; background: transparent;">
-      
-      <div style="font-weight:bold; color:${color};">
-        Amount: $${Number(bill.bill_amount).toFixed(2)} | Status: ${bill.bill_status || 'Undefined'} | Due: ${due}
-      </div>
-      
-      <div id="bill-actions-${bill.bill_id}" style="margin-top:10px;">
-        ${
-          bill.bill_status && bill.bill_status.toLowerCase() === "paid"
-            ? `<div style="color:green; margin-top:6px;">Payment submitted successfully.</div>`
-            : `
-              <div class="bill-buttons" style="margin-top:6px;">
-                <button onclick="openPayForm(${bill.bill_id}, ${req.request_id})">Pay</button>
-                <button onclick="resubmitRequest(${req.request_id})">Dispute</button>
-              <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
-            `
-        }
-      </div>
-    </div>
-  `;
-});
+            innerHTML += `
+              <div class="bill-section-${bill.bill_id}-${req.request_id}" 
+                   style="margin-top:12px; padding: 12px; border: 2px solid #007BFF; border-radius: 6px; 
+                          max-width: 500px; margin-left:auto; margin-right:auto; background: transparent;">
+                
+                <div style="font-weight:bold; color:${color};">
+                  Amount: $${Number(bill.bill_amount).toFixed(2)} | Status: ${bill.bill_status || 'Undefined'} | Due: ${due}
+                </div>
+                
+                <div id="bill-actions-${bill.bill_id}" style="margin-top:10px;">
+                  ${
+                    bill.bill_status && bill.bill_status.toLowerCase() === "paid"
+                      ? `<div style="color:green; margin-top:6px;">Payment submitted successfully.</div>`
+                      : `
+                        <div class="bill-buttons" style="margin-top:6px;">
+                          <button onclick="openPayForm(${bill.bill_id}, ${req.request_id})">Pay</button>
+                          <button onclick="resubmitRequest(${req.request_id})">Dispute</button>
+                        <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
+                      `
+                  }
+                </div>
+              </div>
+            `;
+          });
         }
 
         innerHTML += `</div>`; // close client-request box

@@ -676,16 +676,15 @@ async getPendingRequestsForAnna() {
     try {
         const response = await new Promise((resolve, reject) => {
             const query = `
-                SELECT r.request_id, u.username, r.service_address_street, r.service_address_city,
-                       r.service_address_state, r.service_address_zip, r.cleaning_type,
-                       r.rooms, r.preferred_date, r.proposed_budget, r.notes
-                FROM Request_Cleaning r
-                JOIN Users u ON r.client_id = u.user_id
-                WHERE r.request_id NOT IN (
-                    SELECT request_id FROM Quotes WHERE status IN ('quoted', 'rejected')
-                )
-                ORDER BY r.request_date ASC;
-            `;
+    SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
+           r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
+           r.notes
+    FROM Request_Cleaning r
+    LEFT JOIN Quotes q 
+           ON r.request_id = q.request_id AND q.responder_type='Anna'
+    WHERE q.quote_id IS NULL   -- <-- Only requests that Anna hasn't quoted yet
+    ORDER BY r.request_date ASC
+`;
             connection.query(query, (err, results) => {
                 if (err) reject(err);
                 else resolve(results);
@@ -699,16 +698,21 @@ async getPendingRequestsForAnna() {
 
 async clientLoadRequests(username) {
   try {
-    // 1. Get all requests with latest Anna quote (if any) and order/bill flags
+    // 1. Get all requests with latest Anna quote (if any)
     const requests = await new Promise((resolve, reject) => {
       const query = `
-        SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
-               r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-               r.notes, r.order_generated, r.bill_generated,
+        SELECT r.request_id, u.username AS client_username,
                q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status
         FROM Request_Cleaning r
         LEFT JOIN Users u ON r.client_id = u.user_id
-        LEFT JOIN Quotes q ON r.request_id = q.request_id AND q.responder_type='Anna'
+        LEFT JOIN (
+          SELECT * FROM Quotes q1
+          WHERE q1.responder_type='Anna' AND q1.round = (
+            SELECT MAX(q2.round)
+            FROM Quotes q2
+            WHERE q2.request_id = q1.request_id AND q2.responder_type='Anna'
+          )
+        ) q ON r.request_id = q.request_id
         WHERE u.username = ?
         ORDER BY r.request_date ASC
       `;
@@ -728,7 +732,7 @@ async clientLoadRequests(username) {
           else resolve(results);
         });
       });
-      req.bills = bills; // attach bills array
+      req.bills = bills;
     }
 
     return requests;
@@ -765,26 +769,44 @@ async clientLoadRequests(username) {
     } catch(err) { throw err; }
 }
 
-async upsertQuote(requestId, responderId, quotePrice, start, end, note, status) {
+async upsertQuote(requestId, responderId, quotePrice, start, end, note, status = 'quoted') {
     try {
-        const result = await new Promise((resolve, reject) => {
-            const query = `
-                INSERT INTO Quotes (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE
-                    quote_price = VALUES(quote_price),
-                    scheduled_start = VALUES(scheduled_start),
-                    scheduled_end = VALUES(scheduled_end),
-                    note = VALUES(note),
-                    status = VALUES(status)
+        // 1. Determine the next round for this request by Anna
+        const maxRound = await new Promise((resolve, reject) => {
+            const q = `
+                SELECT MAX(round) AS max_round 
+                FROM Quotes 
+                WHERE request_id = ? AND responder_type = 'Anna'
             `;
-            connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
-                if(err) reject(err); 
-                else resolve(res.insertId || requestId); // return ID
+            connection.query(q, [requestId], (err, results) => {
+                if(err) reject(err);
+                else resolve(results[0].max_round || 0); // If no previous quote, start at 0
             });
         });
+
+        const nextRound = maxRound + 1;
+
+        // 2. Insert a new quote row for this round
+        const result = await new Promise((resolve, reject) => {
+            const query = `
+                INSERT INTO Quotes 
+                (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, round, responder_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Anna')
+            `;
+            connection.query(
+                query, 
+                [requestId, responderId, quotePrice, start, end, note, status, nextRound], 
+                (err, res) => {
+                    if(err) reject(err); 
+                    else resolve(res.insertId); // return the new quote ID
+                }
+            );
+        });
+
         return result;
-    } catch(err) { throw err; }
+    } catch(err) { 
+        throw err; 
+    }
 }
 
 async updateQuote(requestId, status, note = null) {
