@@ -180,6 +180,24 @@ class DbService{
         }
     }
 
+    async acceptQuote(requestId, username) {
+    try {
+        const result = await new Promise((resolve, reject) => {
+            const query = `
+                UPDATE Quotes q
+                JOIN Users u ON u.user_id = (SELECT client_id FROM Request_Cleaning WHERE request_id = ?)
+                SET q.status = 'accepted'
+                WHERE q.request_id = ? AND q.responder_type = 'Anna'
+            `;
+            connection.query(query, [requestId, requestId], (err, res) => {
+                if (err) reject(err);
+                else resolve(res);
+            });
+        });
+        return result;
+    } catch (err) { throw err; }
+}
+
     // function to allow the client to respond to a quote (accept / reject / counter)
     // note: client_username is the client's username (we resolve to user_id here)
     async clientRespondToQuote(client_username, requestId, status, note) {
@@ -698,21 +716,24 @@ async getPendingRequestsForAnna() {
 
 async clientLoadRequests(username) {
   try {
-    // 1. Get all requests with latest Anna quote (if any)
+    // 1. Get all requests with the latest Anna quote (if any)
     const requests = await new Promise((resolve, reject) => {
       const query = `
-        SELECT r.request_id, u.username AS client_username,
-               q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status
+        SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
+               r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
+               r.notes, r.order_generated, r.bill_generated,
+               q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, 
+               CASE WHEN q.status IS NULL THEN NULL ELSE 'quoted' END AS quote_status
         FROM Request_Cleaning r
         LEFT JOIN Users u ON r.client_id = u.user_id
-        LEFT JOIN (
-          SELECT * FROM Quotes q1
-          WHERE q1.responder_type='Anna' AND q1.round = (
-            SELECT MAX(q2.round)
-            FROM Quotes q2
-            WHERE q2.request_id = q1.request_id AND q2.responder_type='Anna'
+        LEFT JOIN Quotes q 
+          ON r.request_id = q.request_id 
+          AND q.responder_type='Anna'
+          AND q.round = (
+            SELECT MAX(round) 
+            FROM Quotes 
+            WHERE request_id = r.request_id AND responder_type='Anna'
           )
-        ) q ON r.request_id = q.request_id
         WHERE u.username = ?
         ORDER BY r.request_date ASC
       `;
@@ -732,7 +753,7 @@ async clientLoadRequests(username) {
           else resolve(results);
         });
       });
-      req.bills = bills;
+      req.bills = bills; // attach bills array
     }
 
     return requests;

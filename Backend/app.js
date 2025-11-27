@@ -86,6 +86,19 @@ app.post('/updateQuote', async (req, res) => {
   }
 });
 
+app.post('/client/accept-quote', async (req, res) => {
+    const { requestId, username } = req.body;
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        const result = await db.acceptQuote(requestId, username); // We'll implement this in dbService
+        res.json({ success: true, result });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // Client submits a counter-note for negotiation
 app.post('/counterQuote', async (req, res) => {
   const { requestId, responderId, note } = req.body;

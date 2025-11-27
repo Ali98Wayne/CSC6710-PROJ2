@@ -877,6 +877,7 @@ async function viewServiceBill(requestId) {
   }
 }
 
+
 // Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
 // Load a list of service requests for the logged-in client
 function clientLoadRequests(username) {
@@ -889,7 +890,8 @@ function clientLoadRequests(username) {
         return;
       }
 
-      // build a centered, boxed layout for each request (keeps your logic/comments intact)
+      window.clientRequests = data.requests; // keep for other uses
+
       let innerHTML = "";
 
       data.requests.forEach(req => {
@@ -903,13 +905,24 @@ function clientLoadRequests(username) {
           background: transparent;
         ">`;
 
-        // Use Anna's quote info, match her dashboard format
-        innerHTML += `<strong>Request #${req.request_id} from ${req.client_username || 'undefined'}</strong><br><br>`;
-        innerHTML += `Quote Price<br>`;
-        innerHTML += `$${req.quote_price != null ? Number(req.quote_price).toFixed(2) : ''}<br><br>`;
-        innerHTML += `${req.scheduled_start ? new Date(req.scheduled_start).toLocaleString() : 'mm/dd/yyyy --:-- --'}<br><br>`;
-        innerHTML += `${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : 'mm/dd/yyyy --:-- --'}<br><br>`;
-        innerHTML += `Note<br>${req.quote_note || ''}<br>`;
+        innerHTML += `<strong>Request #${req.request_id} from ${req.username || 'undefined'}</strong><br>`;
+        innerHTML += `<div><strong>Quote Price</strong><br>
+                      ${req.quote_price ? `$${Number(req.quote_price).toFixed(2)}` : 'No quote yet.'}<br>
+                      ${req.scheduled_start ? new Date(req.scheduled_start).toLocaleString() : '--:-- --'}<br>
+                      ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}<br>
+                      <strong>Note</strong><br>${req.quote_note || ''}</div>`;
+
+        // Accept / Dispute buttons
+        if (req.quote_status === 'quoted') {
+          innerHTML += `<div style="margin-top:8px;">
+            <button onclick="acceptQuote(${req.request_id})">Accept</button> 
+            <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
+          </div>`;
+        } else if (req.quote_status === 'accepted') {
+          innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
+        } else if (req.quote_status === 'rejected') {
+          innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
+        }
 
         // Show service order button if generated
         innerHTML += `<div style="margin-top:10px;">`;
@@ -960,6 +973,10 @@ function clientLoadRequests(username) {
     })
     .catch(err => console.error(err));
 }
+
+
+
+
 
 // open a simple Pay modal/form (no real transaction) — keeps comments and is purely front-end for project
 function openPayForm(billId, requestId) {
@@ -1181,21 +1198,24 @@ async function disputeBill(billId, note) {
 
 // Accept the latest quote
 function acceptQuote(requestId) {
-  fetch('/updateQuote', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requestId, status: 'accepted' })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      alert(`Quote for Request #${requestId} accepted!`);
-      clientLoadRequests(localStorage.getItem("loggedInUser"));
-    } else {
-      alert("Error: " + (data.error || "Unknown error"));
-    }
-  })
-  .catch(err => console.error(err));
+    const username = document.getElementById('client-username').value; // Assuming you have this field
+
+    fetch('/client/accept-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId, username })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Quote accepted! You can now view the service order once Anna generates it.');
+            clientLoadRequests(username); // Refresh the requests list
+        } else {
+            console.error(data.error);
+            alert('Error accepting quote.');
+        }
+    })
+    .catch(err => console.error(err));
 }
 
 // Counter / negotiate quote
@@ -1221,8 +1241,8 @@ function counterQuote(requestId, oldPrice) {
   .catch(err => console.error(err));
 }
 
-function resubmitRequest(requestId) {
-  fetch(`/getRequest/${requestId}`) // fetch the rejected request data
+function resubmitRequest(requestId, annaQuote = null) {
+  fetch(`/getRequest/${requestId}`) // fetch the request data
     .then(res => res.json())
     .then(data => {
       if (!data.success) {
@@ -1240,13 +1260,14 @@ function resubmitRequest(requestId) {
       document.querySelector('#cleaning-type').value = req.cleaning_type;
       document.querySelector('#room-amount').value = req.rooms;
       document.querySelector('#preferred-date-time').value = new Date(req.preferred_date).toISOString().slice(0,16);
-      document.querySelector('#proposed-budget').value = req.proposed_budget;
+
+      // Use Anna's quote if provided, else original proposed budget
+      document.querySelector('#proposed-budget').value = annaQuote ?? req.proposed_budget;
       document.querySelector('#notes').value = req.notes || '';
 
       // Prefill photos if any
       const photoFields = document.getElementById('photo-fields');
       photoFields.innerHTML = '';
-      let photoNum = 0;
       if (req.photo_urls) {
         const photos = JSON.parse(req.photo_urls);
         photos.forEach((url, idx) => {
@@ -1267,7 +1288,6 @@ function resubmitRequest(requestId) {
           div.appendChild(input);
           div.appendChild(removeBtn);
           photoFields.appendChild(div);
-          photoNum++;
         });
       }
 
