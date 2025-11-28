@@ -912,27 +912,25 @@ function clientLoadRequests(username) {
                       ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}<br>
                       <strong>Note</strong><br>${req.quote_note || ''}</div>`;
 
-        // ------------------------------
-        // Accept / Dispute buttons
-        // Show buttons for any quote that isn't rejected
-        // ------------------------------
-        if (req.quote_status !== 'rejected' && req.quote_price) {
-          innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
-            <button onclick="acceptQuote(${req.request_id})">Accept</button> 
-            <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
-          </div>`;
-        } 
-        else if (req.quote_status === 'accepted') {
-          innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
-        } 
-        else if (req.quote_status === 'rejected') {
-          innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
-          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit Request</button>`;
-        }
+const acceptedRequests = JSON.parse(localStorage.getItem('acceptedRequests') || '[]');
 
-        // ------------------------------
-        // Service Order
-        // ------------------------------
+if (acceptedRequests.includes(req.request_id)) {
+    // Already accepted
+    innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
+                      <div style="color:green; font-weight:bold;">Accepted!</div>
+                  </div>`;
+} else if (req.quote_status !== 'rejected' && req.quote_price) {
+    innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
+                      <button onclick="acceptQuote(${req.request_id})">Accept</button> 
+                      <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
+                  </div>`;
+} else if (req.quote_status === 'accepted') {
+    innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
+} else if (req.quote_status === 'rejected') {
+    innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
+    innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit Request</button>`;
+}
+
         innerHTML += `<div style="margin-top:10px;">`;
         if (req.order_generated) {
           innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
@@ -941,9 +939,6 @@ function clientLoadRequests(username) {
         }
         innerHTML += `</div>`;
 
-        // ------------------------------
-        // Bills
-        // ------------------------------
         if (req.bills && req.bills.length > 0) {
           innerHTML += `<div style="margin-top:12px;"><strong>Bills:</strong></div>`;
           req.bills.forEach(bill => {
@@ -1207,14 +1202,22 @@ async function disputeBill(billId, note) {
 
 // Accept the latest quote
 function acceptQuote(requestId) {
-    // Directly replace the buttons with "Accepted!" text
+    // Store in localStorage that this request was accepted
+    const acceptedRequests = JSON.parse(localStorage.getItem('acceptedRequests') || '[]');
+    if (!acceptedRequests.includes(requestId)) {
+        acceptedRequests.push(requestId);
+        localStorage.setItem('acceptedRequests', JSON.stringify(acceptedRequests));
+    }
+
+    // Replace buttons with "Accepted!" text
     const requestDiv = document.getElementById(`client-request-${requestId}`);
     const buttonsDiv = requestDiv.querySelector('.client-quote-buttons');
     if (buttonsDiv) {
+        // Completely clear buttons and show only Accepted!
         buttonsDiv.innerHTML = `<div style="color:green; font-weight:bold; margin-top:8px;">Accepted!</div>`;
     }
 
-    // Optionally, send this to the server so Anna's dashboard knows the quote was accepted
+    // Notify server so Anna's dashboard knows this quote was accepted
     fetch('/client/accept-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
