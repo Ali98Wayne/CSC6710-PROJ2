@@ -111,24 +111,32 @@ function submitQuote(requestId) {
 }
 
 function rejectRequest(requestId) {
+    const note = document.getElementById(`quote-note-${requestId}`).value;
+
+    if (!note.trim()) {
+        alert("Please enter a note before rejecting.");
+        return;
+    }
+
     fetch('/addQuote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            requestId, 
+            requestId,
             responderId: 1, 
-            quotePrice: 0, // Avoid NULL errors
-            scheduledStart: new Date().toISOString(), // Avoid NULL errors
-            scheduledEnd: new Date().toISOString(), // Avoid NULL errors
-            note: 'Rejected', 
-            status: 'rejected' // Mark as handled
+            quotePrice: null,
+            scheduledStart: null,
+            scheduledEnd: null,
+            note: note,
+            status: 'rejected'
         })
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            // Remove the request from Anna's UI immediately
-            const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
+            const reqDiv = document
+                .getElementById(`quote-price-${requestId}`)
+                .closest('.pending-request');
             if (reqDiv) reqDiv.remove();
         } else {
             alert("Error rejecting request: " + (data.error || "Unknown error"));
