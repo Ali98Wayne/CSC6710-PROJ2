@@ -716,23 +716,36 @@ async getPendingRequestsForAnna() {
 
 async clientLoadRequests(username) {
   try {
-    // 1. Get all requests with the latest Anna quote (if any)
     const requests = await new Promise((resolve, reject) => {
       const query = `
-        SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
-               r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-               r.notes, r.order_generated, r.bill_generated,
-               q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, 
-               CASE WHEN q.status IS NULL THEN NULL ELSE 'quoted' END AS quote_status
+        SELECT 
+            r.request_id,
+            r.service_address_street,
+            r.service_address_city,
+            r.service_address_state,
+            r.service_address_zip,
+            r.cleaning_type,
+            r.rooms,
+            r.preferred_date,
+            r.proposed_budget,
+            r.notes,
+            r.order_generated,
+            r.bill_generated,
+            u.username,
+            q.quote_price,
+            q.scheduled_start,
+            q.scheduled_end,
+            q.note AS quote_note,
+            q.status AS quote_status,
+            q.responder_type
         FROM Request_Cleaning r
-        LEFT JOIN Users u ON r.client_id = u.user_id
-        LEFT JOIN Quotes q 
-          ON r.request_id = q.request_id 
-          AND q.responder_type='Anna'
+        JOIN Users u ON r.client_id = u.user_id
+        LEFT JOIN Quotes q ON q.request_id = r.request_id
+          AND q.responder_type = 'Anna'
           AND q.round = (
-            SELECT MAX(round) 
-            FROM Quotes 
-            WHERE request_id = r.request_id AND responder_type='Anna'
+            SELECT MAX(round)
+            FROM Quotes
+            WHERE request_id = r.request_id AND responder_type = 'Anna'
           )
         WHERE u.username = ?
         ORDER BY r.request_date ASC
@@ -743,7 +756,7 @@ async clientLoadRequests(username) {
       });
     });
 
-    // 2. Attach bills for each request
+    // Attach bills for each request
     for (let req of requests) {
       const bills = await new Promise((resolve, reject) => {
         const q = `SELECT bill_id, bill_amount, status AS bill_status, due_date 
@@ -753,7 +766,7 @@ async clientLoadRequests(username) {
           else resolve(results);
         });
       });
-      req.bills = bills; // attach bills array
+      req.bills = bills;
     }
 
     return requests;

@@ -895,7 +895,7 @@ function clientLoadRequests(username) {
       let innerHTML = "";
 
       data.requests.forEach(req => {
-        innerHTML += `<div class="client-request" style="
+        innerHTML += `<div class="client-request" id="client-request-${req.request_id}" style="
           margin: 20px auto;
           padding: 15px;
           border: 2px solid #007BFF;
@@ -912,19 +912,27 @@ function clientLoadRequests(username) {
                       ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}<br>
                       <strong>Note</strong><br>${req.quote_note || ''}</div>`;
 
+        // ------------------------------
         // Accept / Dispute buttons
-        if (req.quote_status === 'quoted') {
-          innerHTML += `<div style="margin-top:8px;">
+        // Show buttons for any quote that isn't rejected
+        // ------------------------------
+        if (req.quote_status !== 'rejected' && req.quote_price) {
+          innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
             <button onclick="acceptQuote(${req.request_id})">Accept</button> 
             <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
           </div>`;
-        } else if (req.quote_status === 'accepted') {
+        } 
+        else if (req.quote_status === 'accepted') {
           innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
-        } else if (req.quote_status === 'rejected') {
+        } 
+        else if (req.quote_status === 'rejected') {
           innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
+          innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit Request</button>`;
         }
 
-        // Show service order button if generated
+        // ------------------------------
+        // Service Order
+        // ------------------------------
         innerHTML += `<div style="margin-top:10px;">`;
         if (req.order_generated) {
           innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
@@ -933,7 +941,9 @@ function clientLoadRequests(username) {
         }
         innerHTML += `</div>`;
 
-        // Show bills (Pay + Dispute inside each box)
+        // ------------------------------
+        // Bills
+        // ------------------------------
         if (req.bills && req.bills.length > 0) {
           innerHTML += `<div style="margin-top:12px;"><strong>Bills:</strong></div>`;
           req.bills.forEach(bill => {
@@ -973,7 +983,6 @@ function clientLoadRequests(username) {
     })
     .catch(err => console.error(err));
 }
-
 
 
 
@@ -1198,21 +1207,23 @@ async function disputeBill(billId, note) {
 
 // Accept the latest quote
 function acceptQuote(requestId) {
-    const username = document.getElementById('client-username').value; // Assuming you have this field
+    // Directly replace the buttons with "Accepted!" text
+    const requestDiv = document.getElementById(`client-request-${requestId}`);
+    const buttonsDiv = requestDiv.querySelector('.client-quote-buttons');
+    if (buttonsDiv) {
+        buttonsDiv.innerHTML = `<div style="color:green; font-weight:bold; margin-top:8px;">Accepted!</div>`;
+    }
 
+    // Optionally, send this to the server so Anna's dashboard knows the quote was accepted
     fetch('/client/accept-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, username })
+        body: JSON.stringify({ requestId })
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            alert('Quote accepted! You can now view the service order once Anna generates it.');
-            clientLoadRequests(username); // Refresh the requests list
-        } else {
-            console.error(data.error);
-            alert('Error accepting quote.');
+        if (!data.success) {
+            console.error('Error updating server:', data.error);
         }
     })
     .catch(err => console.error(err));

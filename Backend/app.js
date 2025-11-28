@@ -87,12 +87,15 @@ app.post('/updateQuote', async (req, res) => {
 });
 
 app.post('/client/accept-quote', async (req, res) => {
-    const { requestId, username } = req.body;
+    const { requestId } = req.body;
     const db = dbService.getDbServiceInstance();
 
     try {
-        const result = await db.acceptQuote(requestId, username); // We'll implement this in dbService
-        res.json({ success: true, result });
+        // 1. Update Anna's quote to accepted
+        await db.updateQuote(requestId, 'accepted');
+
+        // 2. Done — respond success
+        res.json({ success: true });
     } catch (err) {
         console.error(err);
         res.json({ success: false, error: err.message });
