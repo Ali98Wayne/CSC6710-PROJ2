@@ -144,7 +144,7 @@ class DbService{
         }
     }
 
-        // function to allow Anna (responder) to respond to a service request (send quote or reject)
+    // function to allow Anna (responder) to respond to a service request (send quote or reject)
     async respondToQuote(responder_username, requestId, price, scheduled_start, scheduled_end, note, isReject) {
         try {
             // resolve responder's user_id from username
@@ -181,22 +181,23 @@ class DbService{
     }
 
     async acceptQuote(requestId, username) {
-    try {
-        const result = await new Promise((resolve, reject) => {
-            const query = `
-                UPDATE Quotes q
-                JOIN Users u ON u.user_id = (SELECT client_id FROM Request_Cleaning WHERE request_id = ?)
-                SET q.status = 'accepted'
-                WHERE q.request_id = ? AND q.responder_type = 'Anna'
-            `;
-            connection.query(query, [requestId, requestId], (err, res) => {
-                if (err) reject(err);
-                else resolve(res);
+        try {
+            const result = await new Promise((resolve, reject) => {
+                const query = `
+                    UPDATE Quotes q
+                    JOIN Users u ON u.user_id = (SELECT client_id FROM Request_Cleaning WHERE request_id = ?)
+                    SET q.status = 'accepted'
+                    WHERE q.request_id = ? AND q.responder_type = 'Anna'
+                `;
+                connection.query(query, [requestId, requestId], (err, res) => {
+                    if (err) reject(err);
+                    else resolve(res);
+                });
             });
-        });
-        return result;
-    } catch (err) { throw err; }
-}
+            
+            return result;
+        } catch (err) { throw err; }
+    }
 
     // function to allow the client to respond to a quote (accept / reject / counter)
     // note: client_username is the client's username (we resolve to user_id here)
@@ -263,15 +264,15 @@ class DbService{
     }
 
     // function to mark a bill as paid (client pays immediately)
-async payBill(billId) {
-    try {
-        const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
-        const [result] = await this.pool.promise().query(query, [billId]);
-        return result;
-    } catch (err) {
-        throw err;
+    async payBill(billId) {
+        try {
+            const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
+            const [result] = await this.pool.promise().query(query, [billId]);
+            return result;
+        } catch (err) {
+            throw err;
+        }
     }
-}
 
     // function to allow a client to dispute a bill (adds a Bill_History entry and sets status to 'Disputed')
     async disputeBill(client_username, billId, note) {
@@ -368,18 +369,17 @@ async payBill(billId) {
         }
     }
 
-async payBill(billId) {
-    try {
-        const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
-        const [result] = await this.pool.promise().query(query, [billId]);
-        return result;
-    } catch (err) {
-        throw err;
+    async payBill(billId) {
+        try {
+            const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
+            const [result] = await this.pool.promise().query(query, [billId]);
+            return result;
+        } catch (err) {
+            throw err;
+        }
     }
-}
 
-
-     async mostServiceOrders(){
+    async mostServiceOrders(){
         try{
              const response = await new Promise((resolve, reject) => 
                   {
@@ -402,8 +402,8 @@ async payBill(billId) {
                      });
                   }
              );
-             return response;
 
+             return response;
          } catch(err) {
             throw err;
         }
@@ -432,8 +432,8 @@ async payBill(billId) {
                      });
                   }
              );
-             return response;
 
+             return response;
          } catch(err) {
             throw err;
         }
@@ -462,8 +462,8 @@ async payBill(billId) {
                      });
                   }
              );
-             return response;
 
+             return response;
          } catch(err) {
             throw err;
         }
@@ -487,115 +487,118 @@ async payBill(billId) {
                      });
                   }
              );
-             return response;
 
+             return response;
          } catch(err) {
             throw err;
         }
     }
-// 4. Uncommitted Clients: 3+ requests but never completed an order
-async uncommittedClients() {
-    try {
-        const query = `
-            SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
-            FROM Users u
-            JOIN Request_Cleaning r ON u.user_id = r.client_id
-            WHERE r.order_generated = 0
-            GROUP BY u.user_id
-            HAVING request_count >= 3
-        `;
-        const response = await new Promise((resolve, reject) => {
-            connection.query(query, (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
-            });
-        });
-        return response;
-    } catch (err) {
-        throw err;
-    }
-}
 
-// 6. Prospective Clients: registered but never submitted any request
-async prospectiveClients() {
-    try {
-        const query = `
-            SELECT u.user_id, u.first_name, u.last_name, u.email
-            FROM Users u
-            LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
-            WHERE r.client_id IS NULL
-        `;
-        const response = await new Promise((resolve, reject) => {
-            connection.query(query, (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
+    // 4. Uncommitted Clients: 3+ requests but never completed an order
+    async uncommittedClients() {
+        try {
+            const query = `
+                SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
+                FROM Users u
+                JOIN Request_Cleaning r ON u.user_id = r.client_id
+                WHERE r.order_generated = 0
+                GROUP BY u.user_id
+                HAVING request_count >= 3
+            `;
+            const response = await new Promise((resolve, reject) => {
+                connection.query(query, (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                });
             });
-        });
-        return response;
-    } catch (err) {
-        throw err;
-    }
-}
 
-// 8. Overdue Bills: unpaid bills older than one week
-async overdueBills() {
-    try {
-        const query = `
-            SELECT * FROM Bills
-            WHERE status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
-        `;
-        const response = await new Promise((resolve, reject) => {
-            connection.query(query, (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
-            });
-        });
-        return response;
-    } catch (err) {
-        throw err;
+            return response;
+        } catch (err) {
+            throw err;
+        }
     }
-}
 
-// 10. Good Clients: always paid bills within 24 hours
-async goodClients() {
-    try {
-        const query = `
-            SELECT u.user_id, u.first_name, u.last_name, u.email
-            FROM Users u
-            JOIN Bills b ON u.user_id = b.client_id
-            GROUP BY u.user_id
-            HAVING SUM(TIMESTAMPDIFF(HOUR, b.created_at, b.payment_date) > 24) = 0
-        `;
-        const response = await new Promise((resolve, reject) => {
-            connection.query(query, (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
+    // 6. Prospective Clients: registered but never submitted any request
+    async prospectiveClients() {
+        try {
+            const query = `
+                SELECT u.user_id, u.first_name, u.last_name, u.email
+                FROM Users u
+                LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
+                WHERE r.client_id IS NULL
+            `;
+            const response = await new Promise((resolve, reject) => {
+                connection.query(query, (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                });
             });
-        });
-        return response;
-    } catch (err) {
-        throw err;
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
     }
-}
+
+    // 8. Overdue Bills: unpaid bills older than one week
+    async overdueBills() {
+        try {
+            const query = `
+                SELECT * FROM Bills
+                WHERE status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
+            `;
+            const response = await new Promise((resolve, reject) => {
+                connection.query(query, (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                });
+            });
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    // 10. Good Clients: always paid bills within 24 hours
+    async goodClients() {
+        try {
+            const query = `
+                SELECT u.user_id, u.first_name, u.last_name, u.email
+                FROM Users u
+                JOIN Bills b ON u.user_id = b.client_id
+                GROUP BY u.user_id
+                HAVING SUM(TIMESTAMPDIFF(HOUR, b.created_at, b.payment_date) > 24) = 0
+            `;
+            const response = await new Promise((resolve, reject) => {
+                connection.query(query, (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                });
+            });
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    }
     
     async listServiceOrders(){
-        try{
-             const response = await new Promise((resolve, reject) => 
-                  {
-                     const query = `
-                        SELECT request_id, client_id, service_address_street, service_address_city, 
-                        service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, proposed_budget, request_date, order_generated, bill_generated
-                        FROM Request_Cleaning
-                        ORDER BY request_id DESC
-                     `;
-                     connection.query(query, (err, results) => {
-                         if(err) reject(new Error(err.message));
-                         else resolve(results);
-                     });
-                  }
-             );
-             return response;
+        try {
+             const response = await new Promise((resolve, reject) => {
+                const query = `
+                    SELECT request_id, client_id, service_address_street, service_address_city, 
+                    service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, proposed_budget, request_date, order_generated, bill_generated
+                    FROM Request_Cleaning
+                    ORDER BY request_id DESC
+                    `;
+                connection.query(query, (err, results) => {
+                    if(err) reject(new Error(err.message));
+                    else resolve(results);
+                });
+            });
 
+            return response;
          } catch(err) {
             throw err;
         }
@@ -627,275 +630,274 @@ async goodClients() {
                     else resolve(results);
                 });
             });
+
             return { success: true };
         } catch (err) {
             throw err;
         }
     }
     
-async generateServiceBill(requestId) {
-    try {
-
-        const requestInfo = await new Promise((resolve, reject) => {
-            const query = `
-                SELECT client_id, proposed_budget 
-                FROM Request_Cleaning 
-                WHERE request_id = ?;
-            `;
-            connection.query(query, [requestId], (err, rows) => {
-                if (err) reject(new Error(err.message));
-                else resolve(rows[0]);
+    async generateServiceBill(requestId) {
+        try {
+            const requestInfo = await new Promise((resolve, reject) => {
+                const query = `
+                    SELECT client_id, proposed_budget 
+                    FROM Request_Cleaning 
+                    WHERE request_id = ?;
+                `;
+                connection.query(query, [requestId], (err, rows) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(rows[0]);
+                });
             });
-        });
 
-        if (!requestInfo) {
-            throw new Error("Request not found.");
-        }
+            if (!requestInfo) {
+                throw new Error("Request not found.");
+            }
 
-        const { client_id, proposed_budget } = requestInfo;
+            const { client_id, proposed_budget } = requestInfo;
 
-        const insertResult = await new Promise((resolve, reject) => {
-            const query = `
-                INSERT INTO Bills (request_id, client_id, bill_amount, status, due_date)
-                VALUES (?, ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
-            `;
-            connection.query(
-                query,
-                [requestId, client_id, proposed_budget],
-                (err, result) => {
+            const insertResult = await new Promise((resolve, reject) => {
+                const query = `
+                    INSERT INTO Bills (request_id, client_id, bill_amount, status, due_date)
+                    VALUES (?, ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
+                `;
+                connection.query(
+                    query,
+                    [requestId, client_id, proposed_budget],
+                    (err, result) => {
+                        if (err) reject(new Error(err.message));
+                        else resolve(result);
+                    }
+                );
+            });
+
+            const billId = insertResult.insertId;
+
+            await new Promise((resolve, reject) => {
+                const query = `
+                    UPDATE Request_Cleaning 
+                    SET bill_generated = 1, bill_status = 'Unpaid'
+                    WHERE request_id = ?;
+                `;
+                connection.query(query, [requestId], (err, result) => {
                     if (err) reject(new Error(err.message));
                     else resolve(result);
-                }
-            );
-        });
-
-        const billId = insertResult.insertId;
-
-        await new Promise((resolve, reject) => {
-            const query = `
-                UPDATE Request_Cleaning 
-                SET bill_generated = 1, bill_status = 'Unpaid'
-                WHERE request_id = ?;
-            `;
-            connection.query(query, [requestId], (err, result) => {
-                if (err) reject(new Error(err.message));
-                else resolve(result);
-            });
-        });
-
-        return { success: true, billId };
-
-    } catch (err) {
-        throw err;
-    }
-}
-
-async getPendingRequestsForAnna() {
-    try {
-        const response = await new Promise((resolve, reject) => {
-            const query = `
-    SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
-           r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-           r.notes
-    FROM Request_Cleaning r
-    LEFT JOIN Quotes q 
-           ON r.request_id = q.request_id AND q.responder_type='Anna'
-    WHERE q.quote_id IS NULL   -- <-- Only requests that Anna hasn't quoted yet
-    ORDER BY r.request_date ASC
-`;
-            connection.query(query, (err, results) => {
-                if (err) reject(err);
-                else resolve(results);
-            });
-        });
-        return response;
-    } catch (err) {
-        throw err;
-    }
-}
-
-async clientLoadRequests(username) {
-  try {
-    const requests = await new Promise((resolve, reject) => {
-      const query = `
-        SELECT 
-            r.request_id,
-            r.service_address_street,
-            r.service_address_city,
-            r.service_address_state,
-            r.service_address_zip,
-            r.cleaning_type,
-            r.rooms,
-            r.preferred_date,
-            r.proposed_budget,
-            r.notes,
-            r.order_generated,
-            r.bill_generated,
-            u.username,
-            q.quote_price,
-            q.scheduled_start,
-            q.scheduled_end,
-            q.note AS quote_note,
-            q.status AS quote_status,
-            q.responder_type
-        FROM Request_Cleaning r
-        JOIN Users u ON r.client_id = u.user_id
-        LEFT JOIN Quotes q ON q.request_id = r.request_id
-          AND q.responder_type = 'Anna'
-          AND q.round = (
-            SELECT MAX(round)
-            FROM Quotes
-            WHERE request_id = r.request_id AND responder_type = 'Anna'
-          )
-        WHERE u.username = ?
-        ORDER BY r.request_date ASC
-      `;
-      connection.query(query, [username], (err, results) => {
-        if (err) reject(err);
-        else resolve(results);
-      });
-    });
-
-    // Attach bills for each request
-    for (let req of requests) {
-      const bills = await new Promise((resolve, reject) => {
-        const q = `SELECT bill_id, bill_amount, status AS bill_status, due_date 
-                   FROM Bills WHERE request_id = ?`;
-        connection.query(q, [req.request_id], (err, results) => {
-          if (err) reject(err);
-          else resolve(results);
-        });
-      });
-      req.bills = bills;
-    }
-
-    return requests;
-  } catch (err) {
-    throw err;
-  }
-}
-        // Anna responds to a request with a quote or rejection
- async addQuote(requestId, responderId, quotePrice, start, end, note, status) {
-    try {
-        if (status === 'rejected') {
-            // Just update the status
-            const result = await new Promise((resolve, reject) => {
-                const query = `UPDATE Quotes 
-                               SET status = ?, note = ?
-                               WHERE request_id = ? AND responder_id = ?`;
-                connection.query(query, [status, note, requestId, responderId], (err, res) => {
-                    if(err) reject(err); else resolve(res.affectedRows);
                 });
             });
-            return result;
-        } else {
-            // Insert a new quote
-            const result = await new Promise((resolve, reject) => {
-                const query = `INSERT INTO Quotes 
-                                (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
-                                VALUES (?, ?, ?, ?, ?, ?, ?)`;
-                connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
-                    if(err) reject(err); else resolve(res.insertId);
-                });
-            });
-            return result;
+
+            return { success: true, billId };
+        } catch (err) {
+            throw err;
         }
-    } catch(err) { throw err; }
-}
-
-async upsertQuote(requestId, responderId, quotePrice, start, end, note, status = 'quoted') {
-    try {
-        // 1. Determine the next round for this request by Anna
-        const maxRound = await new Promise((resolve, reject) => {
-            const q = `
-                SELECT MAX(round) AS max_round 
-                FROM Quotes 
-                WHERE request_id = ? AND responder_type = 'Anna'
-            `;
-            connection.query(q, [requestId], (err, results) => {
-                if(err) reject(err);
-                else resolve(results[0].max_round || 0); // If no previous quote, start at 0
-            });
-        });
-
-        const nextRound = maxRound + 1;
-
-        // 2. Insert a new quote row for this round
-        const result = await new Promise((resolve, reject) => {
-            const query = `
-                INSERT INTO Quotes 
-                (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, round, responder_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Anna')
-            `;
-            connection.query(
-                query, 
-                [requestId, responderId, quotePrice, start, end, note, status, nextRound], 
-                (err, res) => {
-                    if(err) reject(err); 
-                    else resolve(res.insertId); // return the new quote ID
-                }
-            );
-        });
-
-        return result;
-    } catch(err) { 
-        throw err; 
     }
-}
 
-async updateQuote(requestId, status, note = null) {
-  try {
-    return await new Promise((resolve, reject) => {
-      const query = `UPDATE Quotes SET status = ?, note = COALESCE(?, note) WHERE request_id = ?`;
-      connection.query(query, [status, note, requestId], (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
-      });
-    });
-  } catch (err) {
-    throw err;
-  }
-}
+    async getPendingRequestsForAnna() {
+        try {
+            const response = await new Promise((resolve, reject) => {
+                const query = `
+                    SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
+                        r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
+                        r.notes
+                    FROM Request_Cleaning r
+                    LEFT JOIN Quotes q 
+                        ON r.request_id = q.request_id AND q.responder_type='Anna'
+                    WHERE q.quote_id IS NULL   -- <-- Only requests that Anna hasn't quoted yet
+                    ORDER BY r.request_date ASC
+                    `;
+                connection.query(query, (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                });
+            });
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async clientLoadRequests(username) {
+        try {
+            const requests = await new Promise((resolve, reject) => {
+                const query = `
+                    SELECT 
+                        r.request_id,
+                        r.service_address_street,
+                        r.service_address_city,
+                        r.service_address_state,
+                        r.service_address_zip,
+                        r.cleaning_type,
+                        r.rooms,
+                        r.preferred_date,
+                        r.proposed_budget,
+                        r.notes,
+                        r.order_generated,
+                        r.bill_generated,
+                        u.username,
+                        q.quote_price,
+                        q.scheduled_start,
+                        q.scheduled_end,
+                        q.note AS quote_note,
+                        q.status AS quote_status,
+                        q.responder_type
+                    FROM Request_Cleaning r
+                    JOIN Users u ON r.client_id = u.user_id
+                    LEFT JOIN Quotes q ON q.request_id = r.request_id
+                    AND q.responder_type = 'Anna'
+                    AND q.round = (
+                        SELECT MAX(round)
+                        FROM Quotes
+                        WHERE request_id = r.request_id AND responder_type = 'Anna'
+                    )
+                    WHERE u.username = ?
+                    ORDER BY r.request_date ASC
+                `;
+                connection.query(query, [username], (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                });
+            });
+
+            // Attach bills for each request
+            for (let req of requests) {
+                const bills = await new Promise((resolve, reject) => {
+                    const q = `SELECT bill_id, bill_amount, status AS bill_status, due_date 
+                            FROM Bills WHERE request_id = ?`;
+                    connection.query(q, [req.request_id], (err, results) => {
+                    if (err) reject(err);
+                    else resolve(results);
+                    });
+                });
+                req.bills = bills;
+            }
+            
+            return requests;
+        } catch (err) {
+            throw err;
+        }
+    }
+    
+    // Anna responds to a request with a quote or rejection
+    async addQuote(requestId, responderId, quotePrice, start, end, note, status) {
+        try {
+            if (status === 'rejected') {
+                // Just update the status
+                const result = await new Promise((resolve, reject) => {
+                    const query = `UPDATE Quotes 
+                                SET status = ?, note = ?
+                                WHERE request_id = ? AND responder_id = ?`;
+                    connection.query(query, [status, note, requestId, responderId], (err, res) => {
+                        if(err) reject(err); else resolve(res.affectedRows);
+                    });
+                });
+                return result;
+            } else {
+                // Insert a new quote
+                const result = await new Promise((resolve, reject) => {
+                    const query = `INSERT INTO Quotes 
+                                    (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)`;
+                    connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
+                        if(err) reject(err); else resolve(res.insertId);
+                    });
+                });
+                return result;
+            }
+        } catch(err) { throw err; }
+    }
+
+    async upsertQuote(requestId, responderId, quotePrice, start, end, note, status = 'quoted') {
+        try {
+            // 1. Determine the next round for this request by Anna
+            const maxRound = await new Promise((resolve, reject) => {
+                const q = `
+                    SELECT MAX(round) AS max_round 
+                    FROM Quotes 
+                    WHERE request_id = ? AND responder_type = 'Anna'
+                `;
+                connection.query(q, [requestId], (err, results) => {
+                    if(err) reject(err);
+                    else resolve(results[0].max_round || 0); // If no previous quote, start at 0
+                });
+            });
+
+            const nextRound = maxRound + 1;
+
+            // 2. Insert a new quote row for this round
+            const result = await new Promise((resolve, reject) => {
+                const query = `
+                    INSERT INTO Quotes 
+                    (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, round, responder_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Anna')
+                `;
+                connection.query(
+                    query, 
+                    [requestId, responderId, quotePrice, start, end, note, status, nextRound], 
+                    (err, res) => {
+                        if(err) reject(err); 
+                        else resolve(res.insertId); // return the new quote ID
+                    }
+                );
+            });
+
+            return result;
+        } catch(err) { 
+            throw err; 
+        }
+    }
+
+    async updateQuote(requestId, status, note = null) {
+        try {
+            return await new Promise((resolve, reject) => {
+                const query = `UPDATE Quotes SET status = ?, note = COALESCE(?, note) WHERE request_id = ?`;
+                connection.query(query, [status, note, requestId], (err, result) => {
+                    if (err) reject(err);
+                    else resolve(result);
+                });
+            });
+        } catch (err) {
+            throw err;
+        }
+    }
 
     // Client submits a counter-note for negotiation
     async counterQuote(requestId, responderId, note) {
-    try {
-        const result = await new Promise((resolve, reject) => {
-        const query = `INSERT INTO Quotes 
-                        (request_id, responder_id, note, status, round)
-                        VALUES (?, ?, ?, 'countered', COALESCE((SELECT MAX(round) FROM Quotes WHERE request_id = ?), 0) + 1)`;
-        connection.query(query, [requestId, responderId, note, requestId], (err, res) => {
-            if(err) reject(err); else resolve(res.insertId);
-        });
-        });
-        return result;
-    } catch(err) { throw err; }
+        try {
+            const result = await new Promise((resolve, reject) => {
+                const query = `INSERT INTO Quotes 
+                                (request_id, responder_id, note, status, round)
+                                VALUES (?, ?, ?, 'countered', COALESCE((SELECT MAX(round) FROM Quotes WHERE request_id = ?), 0) + 1)`;
+                connection.query(query, [requestId, responderId, note, requestId], (err, res) => {
+                    if(err) reject(err); else resolve(res.insertId);
+                });
+            });
+            
+            return result;
+        } catch(err) { throw err; }
     }
 
-async resubmitRequest(data) {
-  const { requestId, username, requestAddress, requestAddressCity, requestAddressState,
-          requestAddressZip, requestCleaningType, requestRoomAmount, requestDateTime,
-          requestBudget, requestNotes, photo_urls } = data;
+    async resubmitRequest(data) {
+        const { requestId, username, requestAddress, requestAddressCity, requestAddressState,
+                requestAddressZip, requestCleaningType, requestRoomAmount, requestDateTime,
+                requestBudget, requestNotes, photo_urls } = data;
 
-  return new Promise((resolve, reject) => {
-    const query = `
-      UPDATE Request_Cleaning
-      SET service_address_street = ?, service_address_city = ?, service_address_state = ?, service_address_zip = ?,
-          cleaning_type = ?, rooms = ?, preferred_date = ?, proposed_budget = ?, notes = ?, photo_urls = ? 
-      WHERE request_id = ?;
-    `;
-    connection.query(query, [
-      requestAddress, requestAddressCity, requestAddressState, requestAddressZip,
-      requestCleaningType, requestRoomAmount, requestDateTime, requestBudget,
-      requestNotes, photo_urls, requestId
-    ], (err, result) => {
-      if (err) reject(err);
-      else resolve(result);
-    });
-  });
+        return new Promise((resolve, reject) => {
+            const query = `
+            UPDATE Request_Cleaning
+            SET service_address_street = ?, service_address_city = ?, service_address_state = ?, service_address_zip = ?,
+                cleaning_type = ?, rooms = ?, preferred_date = ?, proposed_budget = ?, notes = ?, photo_urls = ? 
+            WHERE request_id = ?;
+            `;
+            connection.query(query, [
+            requestAddress, requestAddressCity, requestAddressState, requestAddressZip,
+            requestCleaningType, requestRoomAmount, requestDateTime, requestBudget,
+            requestNotes, photo_urls, requestId
+            ], (err, result) => {
+            if (err) reject(err);
+            else resolve(result);
+            });
+        });
+    }
 }
-}
-
-
-
 module.exports = DbService;

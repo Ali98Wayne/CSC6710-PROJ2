@@ -40,111 +40,108 @@ document.addEventListener("DOMContentLoaded", function() {
 
     }
 
-    
     function renderAnnaQuoteUI(requests) {
-    const container = document.getElementById('pending-quotes-list');
-    container.innerHTML = '';
+      const container = document.getElementById('pending-quotes-list');
+      container.innerHTML = '';
 
-    requests.forEach(req => {
-        const div = document.createElement('div');
-        div.classList.add('pending-request');
+      requests.forEach(req => {
+          const div = document.createElement('div');
+          div.classList.add('pending-request');
 
-        // Build innerHTML WITHOUT inline onclick
-        div.innerHTML = `
-            <p>Request #${req.request_id} from ${req.username}</p>
-            <input type="number" placeholder="Quote Price" id="quote-price-${req.request_id}">
-            <input type="datetime-local" id="quote-start-${req.request_id}">
-            <input type="datetime-local" id="quote-end-${req.request_id}">
-            <input type="text" placeholder="Note" id="quote-note-${req.request_id}">
-            <button class="submit-quote-btn">Submit Quote</button>
-            <button class="reject-request-btn">Reject</button>
-        `;
+          // Build innerHTML WITHOUT inline onclick
+          div.innerHTML = `
+              <p>Request #${req.request_id} from ${req.username}</p>
+              <input type="number" placeholder="Quote Price" id="quote-price-${req.request_id}">
+              <input type="datetime-local" id="quote-start-${req.request_id}">
+              <input type="datetime-local" id="quote-end-${req.request_id}">
+              <input type="text" placeholder="Note" id="quote-note-${req.request_id}">
+              <button class="submit-quote-btn">Submit Quote</button>
+              <button class="reject-request-btn">Reject</button>
+          `;
 
-        // Attach listeners dynamically
-        div.querySelector('.submit-quote-btn')
-           .addEventListener('click', () => submitQuote(req.request_id));
+          // Attach listeners dynamically
+          div.querySelector('.submit-quote-btn')
+            .addEventListener('click', () => submitQuote(req.request_id));
 
-        div.querySelector('.reject-request-btn')
-           .addEventListener('click', () => rejectRequest(req.request_id));
+          div.querySelector('.reject-request-btn')
+            .addEventListener('click', () => rejectRequest(req.request_id));
 
-        container.appendChild(div);
-    });
-}
-
-
-function submitQuote(requestId) {
-    const price = document.getElementById(`quote-price-${requestId}`).value;
-    const start = document.getElementById(`quote-start-${requestId}`).value;
-    const end = document.getElementById(`quote-end-${requestId}`).value;
-    const note = document.getElementById(`quote-note-${requestId}`).value;
-
-    // Basic validation
-    if (!price || !start || !end) {
-        alert("Please enter price, start, and end dates for the quote.");
-        return;
+          container.appendChild(div);
+      });
     }
 
-    fetch('/addQuote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            requestId, 
-            responderId: 1, 
-            quotePrice: price, 
-            scheduledStart: start, 
-            scheduledEnd: end, 
-            note: note || '', 
-            status: 'quoted' // Mark as handled
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            // Remove the request from Anna's UI immediately
-            const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
-            if (reqDiv) reqDiv.remove();
-        } else {
-            alert("Error submitting quote: " + (data.error || "Unknown error"));
+    function submitQuote(requestId) {
+        const price = document.getElementById(`quote-price-${requestId}`).value;
+        const start = document.getElementById(`quote-start-${requestId}`).value;
+        const end = document.getElementById(`quote-end-${requestId}`).value;
+        const note = document.getElementById(`quote-note-${requestId}`).value;
+
+        // Basic validation
+        if (!price || !start || !end) {
+            alert("Please enter price, start, and end dates for the quote.");
+            return;
         }
-    })
-    .catch(err => console.error("Error submitting quote:", err));
-}
 
-function rejectRequest(requestId) {
-    const note = document.getElementById(`quote-note-${requestId}`).value;
-
-    if (!note.trim()) {
-        alert("Please enter a note before rejecting.");
-        return;
+        fetch('/addQuote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                requestId, 
+                responderId: 1, 
+                quotePrice: price, 
+                scheduledStart: start, 
+                scheduledEnd: end, 
+                note: note || '', 
+                status: 'quoted' // Mark as handled
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Remove the request from Anna's UI immediately
+                const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
+                if (reqDiv) reqDiv.remove();
+            } else {
+                alert("Error submitting quote: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => console.error("Error submitting quote:", err));
     }
 
-    fetch('/addQuote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            requestId,
-            responderId: 1, 
-            quotePrice: null,
-            scheduledStart: null,
-            scheduledEnd: null,
-            note: note,
-            status: 'rejected'
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            const reqDiv = document
-                .getElementById(`quote-price-${requestId}`)
-                .closest('.pending-request');
-            if (reqDiv) reqDiv.remove();
-        } else {
-            alert("Error rejecting request: " + (data.error || "Unknown error"));
-        }
-    })
-    .catch(err => console.error("Error rejecting request:", err));
-}
+    function rejectRequest(requestId) {
+        const note = document.getElementById(`quote-note-${requestId}`).value;
 
+        if (!note.trim()) {
+            alert("Please enter a note before rejecting.");
+            return;
+        }
+
+        fetch('/addQuote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                requestId,
+                responderId: 1, 
+                quotePrice: null,
+                scheduledStart: null,
+                scheduledEnd: null,
+                note: note,
+                status: 'rejected'
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                const reqDiv = document
+                    .getElementById(`quote-price-${requestId}`)
+                    .closest('.pending-request');
+                if (reqDiv) reqDiv.remove();
+            } else {
+                alert("Error rejecting request: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => console.error("Error rejecting request:", err));
+    }
 
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
@@ -294,60 +291,64 @@ function rejectRequest(requestId) {
         updateUI();
     });
 
-    // Show/hide the profile section based on user login status, hide logout button by default, only show the queries section for Anna Johnson
-function updateUI() {
-    const currentUser = localStorage.getItem("loggedInUser");
-    const profileSection = document.querySelector("#profile-section");
-    const profileName = document.querySelector("#profile-name");
-    const serviceRequest = document.querySelector("#service-request");
-    const serviceOrdersList = document.querySelector("#service-orders-list");
-    const queriesSection = document.querySelector("#queries-section");
-    const queryResults = document.querySelector("#query-results");
-    const queryBody = document.querySelector('#query-results tbody');
-
-    if (currentUser) {
-        signupSection.style.display = "none";
-        loginSection.style.display = "none";
-        profileSection.style.display = "flex";
-        profileName.textContent = currentUser;
-        logoutBtn.style.display = "none";
-        serviceRequest.style.display = "block";
-        serviceOrdersList.style.display = "none";
-        queriesSection.style.display = "none";
-        queryResults.style.display = "none";
-        if (queryBody) queryBody.innerHTML = '';
-    clientLoadRequests(currentUser); // Load requests (includes quotes + nested bills)
-    loadBills(currentUser); 
-    } else if (isAnnaUser) {
-        signupSection.style.display = "none";
-        loginSection.style.display = "none";
-        serviceRequest.style.display = "none";
-        serviceOrdersList.style.display = "block";
-        queriesSection.style.display = 'block';
-        document.getElementById("client-requests").innerHTML = "";
+    // Show/hide content based on user status
+    function updateUI() {
+        const currentUser = localStorage.getItem("loggedInUser");
+        const profileSection = document.querySelector("#profile-section");
+        const profileName = document.querySelector("#profile-name");
+        const serviceRequest = document.querySelector("#service-request");
+        const serviceOrdersList = document.querySelector("#service-orders-list");
+        const queriesSection = document.querySelector("#queries-section");
+        const queryResults = document.querySelector("#query-results");
+        const queryBody = document.querySelector('#query-results tbody');
         const pendingQuotesSection = document.getElementById("pending-quotes-section");
-        pendingQuotesSection.style.display = "block";
-        fetch('/pendingRequests')
-        .then(res => res.json())
-        .then(data => {
-            renderAnnaQuoteUI(data.requests);
-        });
-    } else {
-        signupSection.style.display = "block";
-        loginSection.style.display = "none";
-        profileSection.style.display = "none";
-        serviceRequest.style.display = "none";
-        inputFields.forEach(input => input.value = "");
-        photoFields.innerHTML = '';
-        photoNum = 0;
-        addPhotoButton.style.display = 'inline-block';
-        serviceOrdersList.style.display = "none";
-        queriesSection.style.display = "none";
-        queryResults.style.display = "none";
-        if (queryBody) queryBody.innerHTML = '';
-        document.getElementById("client-requests").innerHTML = "";
+        const billingSection = document.getElementById("billing-section");
+
+        if (currentUser) {
+            signupSection.style.display = "none";
+            loginSection.style.display = "none";
+            profileSection.style.display = "flex";
+            profileName.textContent = currentUser;
+            logoutBtn.style.display = "none";
+            serviceRequest.style.display = "block";
+            serviceOrdersList.style.display = "none";
+            queriesSection.style.display = "none";
+            queryResults.style.display = "none";
+            if (queryBody) queryBody.innerHTML = '';
+            clientLoadRequests(currentUser); // Load requests (includes quotes + nested bills)
+            loadBills(currentUser); 
+        } else if (isAnnaUser) {
+            signupSection.style.display = "none";
+            loginSection.style.display = "none";
+            serviceRequest.style.display = "none";
+            serviceOrdersList.style.display = "block";
+            queriesSection.style.display = 'block';
+            document.getElementById("client-requests").innerHTML = "";
+            pendingQuotesSection.style.display = "block";
+            fetch('/pendingRequests')
+            .then(res => res.json())
+            .then(data => {
+                renderAnnaQuoteUI(data.requests);
+            });
+            billingSection.style.display = "block";        
+        } else {
+            signupSection.style.display = "block";
+            loginSection.style.display = "none";
+            profileSection.style.display = "none";
+            serviceRequest.style.display = "none";
+            inputFields.forEach(input => input.value = "");
+            photoFields.innerHTML = '';
+            photoNum = 0;
+            addPhotoButton.style.display = 'inline-block';
+            serviceOrdersList.style.display = "none";
+            queriesSection.style.display = "none";
+            queryResults.style.display = "none";
+            if (queryBody) queryBody.innerHTML = '';
+            document.getElementById("client-requests").innerHTML = "";
+            pendingQuotesSection.style.display = "none";
+            billingSection.style.display = "none";
+        }
     }
-}
 
     // Check the login status on page load
     updateUI();
@@ -649,8 +650,10 @@ function serviceOrdersList(data) {
         tableHtml += `<td>${new Date(preferred_date).toLocaleString()}</td>`;
         tableHtml += `<td>${proposed_budget}</td>`;
         tableHtml += `<td>${new Date(request_date).toLocaleDateString()}</td>`;
-        tableHtml += `<td><button class="generate-order-btn" data-id="${request_id}">Generate Order</button></td>`;
-        tableHtml += `<td><button class="generate-bill-btn" data-id="${request_id}">Generate Bill</button></td>`;
+        // Show the generate order button if an order hasn't been generated by Anna Johnson, otherwise hide the button
+        tableHtml += `<td>${order_generated == 0 ? `<button class="generate-order-btn" data-id="${request_id}">Generate Order</button>` : `<button class="generate-order-btn" disabled>Order Generated</button>`}<td>`;
+        // Show the generate bill button if an bill hasn't been generated by Anna Johnson, otherwise hide the button
+        tableHtml += `<td>${bill_generated == 0 ? `<button class="generate-bill-btn" data-id="${request_id}">Generate Bill</button>` : `<button class="generate-order-btn" disabled>Bill Generated</button>`}<td>`;
         // Show the view order button if an order has been generated by Anna Johnson
         tableHtml += `<td>${order_generated == 1 ? `<button class="view-order-btn" data-id="${request_id}">View Order</button>` : `<span>Service Order for Request: ${request_id} is Pending</span>`}</td>`;
         // Show the view bill button if a bill has been generated by Anna Johnson
@@ -885,7 +888,6 @@ async function viewServiceBill(requestId) {
   }
 }
 
-
 // Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
 // Load a list of service requests for the logged-in client
 function clientLoadRequests(username) {
@@ -920,24 +922,24 @@ function clientLoadRequests(username) {
                       ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}<br>
                       <strong>Note</strong><br>${req.quote_note || ''}</div>`;
 
-const acceptedRequests = JSON.parse(localStorage.getItem('acceptedRequests') || '[]');
+        const acceptedRequests = JSON.parse(localStorage.getItem('acceptedRequests') || '[]');
 
-if (acceptedRequests.includes(req.request_id)) {
-    // Already accepted
-    innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
-                      <div style="color:green; font-weight:bold;">Accepted!</div>
-                  </div>`;
-} else if (req.quote_status !== 'rejected' && req.quote_price) {
-    innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
-                      <button onclick="acceptQuote(${req.request_id})">Accept</button> 
-                      <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
-                  </div>`;
-} else if (req.quote_status === 'accepted') {
-    innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
-} else if (req.quote_status === 'rejected') {
-    innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
-    innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit Request</button>`;
-}
+        if (acceptedRequests.includes(req.request_id)) {
+            // Already accepted
+            innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
+                              <div style="color:green; font-weight:bold;">Accepted!</div>
+                          </div>`;
+        } else if (req.quote_status !== 'rejected' && req.quote_price) {
+            innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
+                              <button onclick="acceptQuote(${req.request_id})">Accept</button> 
+                              <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
+                          </div>`;
+        } else if (req.quote_status === 'accepted') {
+            innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
+        } else if (req.quote_status === 'rejected') {
+            innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
+            innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit Request</button>`;
+        }
 
         innerHTML += `<div style="margin-top:10px;">`;
         if (req.order_generated) {
@@ -955,7 +957,7 @@ if (acceptedRequests.includes(req.request_id)) {
 
             innerHTML += `
               <div class="bill-section-${bill.bill_id}-${req.request_id}" 
-                   style="margin-top:12px; padding: 12px; border: 2px solid #007BFF; border-radius: 6px; 
+                  style="margin-top:12px; padding: 12px; border: 2px solid #007BFF; border-radius: 6px; 
                           max-width: 500px; margin-left:auto; margin-right:auto; background: transparent;">
                 
                 <div style="font-weight:bold; color:${color};">
@@ -978,17 +980,12 @@ if (acceptedRequests.includes(req.request_id)) {
             `;
           });
         }
-
         innerHTML += `</div>`; // close client-request box
       });
-
       document.getElementById("client-requests").innerHTML = innerHTML;
     })
     .catch(err => console.error(err));
 }
-
-
-
 
 // open a simple Pay modal/form (no real transaction) — keeps comments and is purely front-end for project
 function openPayForm(billId, requestId) {
