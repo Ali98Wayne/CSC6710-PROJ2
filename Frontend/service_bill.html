@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Service Bill</title>
+  <link rel="stylesheet" href="order-and-bill.css">
+</head>
+<body>
+<div class="header">
+  <h1>Service Bill</h1>
+  <div class="subheader">
+    Provider: <strong>Anna Johnson – Home Cleaning Services</strong><br>
+    Bill Generated: {{generated_date}}
+  </div>
+</div>
+<div class="content-container">
+    <div class="section-title">Billing Information</div>
+    <table class="info-table">
+        <tr><td><strong>Bill ID:</strong></td><td>{{bill_id}}</td></tr>
+        <tr><td><strong>Service Request ID:</strong></td><td>{{request_id}}</td></tr>
+        <tr><td><strong>Bill Status:</strong></td><td>{{bill_status}}</td></tr>
+        <tr><td><strong>Amount Due:</strong></td><td>${{bill_amount}}</td></tr>
+        <tr><td><strong>Due Date:</strong></td><td>{{due_date}}</td></tr>
+        <tr><td><strong>Payment Date:</strong></td><td>{{payment_date}}</td></tr>
+    </table>
+
+    <div class="section-title">Client Information</div>
+    <table class="info-table">
+      <tr><td><strong>Client Name:</strong></td><td>{{client_name}}</td></tr>
+      <tr><td><strong>Billing Address:</strong></td><td>{{client_address}}</td></tr>
+      <tr><td><strong>Phone:</strong></td><td>{{client_phone}}</td></tr>
+      <tr><td><strong>Email:</strong></td><td>{{client_email}}</td></tr>
+    </table>
+
+    <div class="section-title">Service Summary</div>
+    <table class="info-table">
+        <tr><td><strong>Service Address:</strong></td><td>{{service_address}}</td></tr>
+        <tr><td><strong>Cleaning Type:</strong></td><td>{{cleaning_type}}</td></tr>
+        <tr><td><strong>Number of Rooms:</strong></td><td>{{rooms}}</td></tr>
+        <tr><td><strong>Scheduled Date:</strong></td><td>{{scheduled_date}}</td></tr>
+        <tr><td><strong>Final Agreed Price:</strong></td><td>${{agreed_price}}</td></tr>
+    </table>
+
+    {{bill_notes_section}}
+    {{bill_history_section}}
+</div>
+<div class="legal">
+  This bill documents the agreed-upon charges for cleaning services rendered.  
+  If the client disputes the bill, all negotiation responses are recorded and may be used for resolution.
+</div>
+<button onclick="window.print()">Print Bill</button>
+</body>
+</html>

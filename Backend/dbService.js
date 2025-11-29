@@ -604,6 +604,24 @@ class DbService{
         }
     }
 
+    async getUser(clientId) {
+        try {
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `SELECT * FROM Users WHERE user_id = ?;`;
+                     connection.query(query, [clientId], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+
+            return response[0];  // Return the first (and only) record
+        } catch (err) {
+            throw err;
+        }
+    }
+
     async getRequest(requestId) {
         try {
              const response = await new Promise((resolve, reject) => 
@@ -615,7 +633,26 @@ class DbService{
                      });
                   }
              );
-            return response[0];  // Return the first (and only) record
+
+            return response[0];
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async getBill(requestId) {
+        try {
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `SELECT * FROM Bills WHERE request_id = ?;`;
+                     connection.query(query, [requestId], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
+
+            return response[0];
         } catch (err) {
             throw err;
         }
@@ -872,7 +909,7 @@ class DbService{
                     if(err) reject(err); else resolve(res.insertId);
                 });
             });
-            
+
             return result;
         } catch(err) { throw err; }
     }

@@ -24,20 +24,19 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Function to swap between Sign Up & Login sections
     function toSignupOrLogin(target) {
-    if (target === "login") {
-        signupSection.style.display = "none"; // Hide the Sign Up section
-        loginSection.style.display = "block"; // Show the Login section
-    } else {
-        signupSection.style.display = "block"; // Show the Sign Up section
-        loginSection.style.display = "none"; // Hide the Login section
-    }
+      if (target === "login") {
+          signupSection.style.display = "none"; // Hide the Sign Up section
+          loginSection.style.display = "block"; // Show the Login section
+      } else {
+          signupSection.style.display = "block"; // Show the Sign Up section
+          loginSection.style.display = "none"; // Hide the Login section
+      }
 
-    // Reset Signup & Login input fields when swapping between sections 
-    document.querySelectorAll("#signup-section input, #login-section input")
-        .forEach(input => (input.value = ""));
-    document.querySelector("#signup-address-state").value = "";
-    document.querySelector("#signup-creditcard-month").value = "January";
-
+      // Reset Signup & Login input fields when swapping between sections 
+      document.querySelectorAll("#signup-section input, #login-section input")
+          .forEach(input => (input.value = ""));
+      document.querySelector("#signup-address-state").value = "";
+      document.querySelector("#signup-creditcard-month").value = "January";
     }
 
     function renderAnnaQuoteUI(requests) {
@@ -732,89 +731,53 @@ function serviceOrdersList(data) {
 async function viewServiceOrder(requestId) {
   try {
     // Fetch the request details
-    const response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
-    const data = await response.json();
+    const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
+    const service_request_data = await get_service_response.json();
 
-    if (!data.success) {
+    if (!service_request_data.success) {
       alert("Failed to load service request details");
       return;
     }
 
-    const req = data.request;
+    const service_req = service_request_data.request;
 
-    // Open a blank new tab
+    // Fetch the user's details
+    const clientId = service_req.client_id;
+    const get_user_response = await fetch(`http://localhost:5050/getUser/${clientId}`);
+    const user_data = await get_user_response.json();
+
+    if (!user_data.success) {
+      alert("Failed to load user details");
+      return;
+    }
+
+    const user_req = user_data.request;
+
+    // Fetch the HTML Service Order template
+    const orderTemplateRes = await fetch("service_order.html");
+    let orderTemplate = await orderTemplateRes.text();
+
+    // Write order data to the order template
+    orderTemplate = orderTemplate
+      .replace("{{generated_date}}", new Date().toLocaleDateString())
+      .replace("{{request_id}}", service_req.request_id)
+      .replace("{{agreement_date}}", new Date(service_req.quote_accept_date).toLocaleDateString())
+      .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`) // There's 2 instances of {{client_name}}, so replaceAll is needed
+      .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
+      .replace("{{client_phone}}", user_req.phone)
+      .replace("{{client_email}}", user_req.email)
+      .replace("{{service_address}}", `${service_req.service_address_street}, ${service_req.service_address_city}, ${service_req.service_address_state} ${service_req.service_address_zip}`)
+      .replace("{{cleaning_type}}", service_req.cleaning_type)
+      .replace("{{rooms}}", service_req.rooms)
+      .replace("{{preferred_date}}", new Date(service_req.preferred_date).toLocaleString())
+      .replace("{{budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
+      .replace("{{notes_section}}", service_req.notes ? `<div class="section-title">Notes</div><p>${service_req.notes}</p>` : "")
+      .replace("{{photos_section}}", service_req.photo_urls ? `<div class="section-title">Photo URLs</div><ul>${JSON.parse(service_req.photo_urls).map(u=>`<li>${u}</li>`).join('')}</ul>` : "");
+
+    // Open the serivce order in a new tab
     const newTab = window.open("", "_blank");
-    const doc = newTab.document;
-    doc.open();
-
-    // Write dynamic HTML into the new tab
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Service Bill - Request #${req.request_id}</title>
-        <style>
-          body {
-            background-color: #000;
-            color: #f0f0f0;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            padding: 40px 0;
-          }
-
-          main {
-            padding: 40px 50px;
-            width: 90%;
-            max-width: 800px;
-          }
-
-          h1, h2 {
-            color: #00bfff;
-            margin-bottom: 20px;
-          }
-
-          button {
-            margin-top: 20px;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            background-color: #00bfff;
-            color: #000;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-          }
-
-          button:hover {
-            background-color: #0099cc;
-            box-shadow: 0 0 15px #00bfff;
-            transform: translateY(-2px);
-          }
-        </style>
-      </head>
-      <body>
-        <main>
-          <h1>Service Agreement</h1>
-          <h2>Request #${req.request_id}</h2>
-            <p><strong>Client ID:</strong> ${req.client_id}</p>
-            <p><strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state}, ${req.service_address_zip}</p>
-            <p><strong>Cleaning Type:</strong> ${req.cleaning_type}</p>
-            <p><strong>Rooms:</strong> ${req.rooms}</p>
-            <p><strong>Preferred Date:</strong> ${new Date(req.preferred_date).toLocaleString()}</p>
-            <p><strong>Proposed Budget:</strong> $${req.proposed_budget.toFixed(2)}</p>
-            <p><strong>Request Date:</strong> ${new Date(req.request_date).toLocaleDateString()}</p>
-            ${req.notes ? `<p><strong>Notes:</strong> ${req.notes}</p>` : ""}
-            ${req.photo_urls ? `<p><strong>Photo URLS: </strong> ${req.photo_urls}</p>` : ""}
-          <p style="margin-top:25px;">By proceeding, the customer agrees to the terms of this service agreement.</p>
-          <button onclick="window.print()">Print Agreement</button>
-        </main>
-      </body>
-      </html>
-    `;
-    doc.write(html);
-    doc.close();
-
+    newTab.document.write(orderTemplate);
+    newTab.document.close();
   } catch (err) {
     alert(`Error loading service request: ${err.message}`);
   }
@@ -823,69 +786,97 @@ async function viewServiceOrder(requestId) {
 // Function to process a service bill corresponding to a service request
 async function viewServiceBill(requestId) {
   try {
-    const response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
-    const data = await response.json();
+    const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
+    const service_request_data = await get_service_response.json();
 
-    if (!data.success) {
+    if (!service_request_data.success) {
       alert("Failed to load service request details");
       return;
     }
 
-    const req = data.request;
+    const service_req = service_request_data.request;
 
+    const clientId = service_req.client_id;
+    const get_user_response = await fetch(`http://localhost:5050/getUser/${clientId}`);
+    const user_data = await get_user_response.json();
+
+    if (!user_data.success) {
+      alert("Failed to load user details");
+      return;
+    }
+
+    const user_req = user_data.request;
+
+    // Fetch bill data
+    const billRes = await fetch(`http://localhost:5050/getBill/${requestId}`);
+    const billData = await billRes.json();
+
+    if (!billData.success) {
+      alert("Failed to load bill details.");
+      return;
+    }
+
+    const service_bill = billData.request;
+
+    // Fetch Bill History
+    const historyRes = await fetch(`http://localhost:5050/getBillHistory/${service_bill.bill_id}`);
+    const historyData = await historyRes.json();
+
+    let historyHTML = "";
+    if (historyData.success && historyData.history.length > 0) historyHTML = buildBillHistoryHTML(historyData.history);
+
+    // Fetch the HTML Service Bill template
+    const billTemplateRes = await fetch("service_bill.html");
+    let billTemplate = await billTemplateRes.text();
+
+    // Write bill data to the bill template
+    billTemplate = billTemplate
+      .replace("{{generated_date}}", new Date().toLocaleDateString())
+      .replace("{{bill_id}}", service_bill.bill_id)
+      .replace("{{request_id}}", service_bill.request_id)
+      .replace("{{bill_status}}", service_bill.status)
+      .replace("{{bill_amount}}", `$${Number(service_bill.bill_amount).toFixed(2)}`)
+      .replace("{{due_date}}", new Date(service_bill.due_date).toLocaleDateString())
+      .replace("{{payment_date}}", service_bill.payment_date || "Not Paid")
+      .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`)
+      .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
+      .replace("{{client_phone}}", user_req.phone)
+      .replace("{{client_email}}", user_req.email)
+      .replace("{{service_address}}",
+        `${service_req.service_address_street}, ${service_req.service_address_city}, ${service_req.service_address_state} ${service_req.service_address_zip}`)
+      .replace("{{cleaning_type}}", service_req.cleaning_type)
+      .replace("{{rooms}}", service_req.rooms)
+      .replace("{{scheduled_date}}", new Date(service_req.preferred_date).toLocaleString())
+      .replace("{{agreed_price}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
+      .replace("{{bill_notes_section}}", service_bill.note ? `<div class="section-title">Bill Notes</div><p>${service_bill.note}</p>` : "")
+      .replace("{{bill_history_section}}", historyHTML);
+
+    // Open the service bill in a new tab
     const newTab = window.open("", "_blank");
-    const doc = newTab.document;
-    doc.open();
-
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <title>Service Bill - Request #${req.request_id}</title>
-        <style>
-          body {
-            background-color: #000;
-            color: #f0f0f0;
-            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            padding: 40px 0;
-          }
-
-          main {
-            padding: 40px 50px;
-            width: 90%;
-            max-width: 800px;
-          }
-
-          h1, h2 {
-            color: #00bfff;
-            margin-bottom: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Service Bill</h1>
-        <div class="bill-container">
-          <p><strong>Request ID:</strong> ${req.request_id}</p>
-          <p><strong>Client ID:</strong> ${req.client_id}</p>
-          <p><strong>Service Address:</strong> ${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state}, ${req.service_address_zip}</p>
-          <p><strong>Cleaning Type:</strong> ${req.cleaning_type}</p>
-          <p><strong>Rooms:</strong> ${req.rooms}</p>
-          <p><strong>Preferred Date:</strong> ${new Date(req.preferred_date).toLocaleString()}</p>
-          <p><strong>Proposed Budget:</strong> $${req.proposed_budget.toFixed(2)}</p>
-          <p><strong>Request Date:</strong> ${new Date(req.request_date).toLocaleDateString()}</p>
-          ${req.notes ? `<p><strong>Notes:</strong> ${req.notes}</p>` : ""}
-        </div>
-      </body>
-      </html>
-    `;
-    doc.write(html);
-    doc.close();
+    newTab.document.write(billTemplate);
+    newTab.document.close();
 
   } catch (err) {
     alert(`Error loading service bill: ${err.message}`);
   }
+}
+
+// Converts Bill History rows from the database to usable HTML when viewing a bill
+function buildBillHistoryHTML(historyEntries) {
+  let html = `<div class="section-title">Bill History</div><div class="history-container">`;
+
+  historyEntries.forEach(entry => {
+    html += `
+      <div class="history-entry">
+        <div><strong>${entry.responder_type}</strong> – ${new Date(entry.created_at).toLocaleString()}</div>
+        <div><strong>New Amount:</strong> $${Number(entry.new_amount).toFixed(2)}</div>
+        <div><strong>Note:</strong> ${entry.note || "—"}</div>
+      </div>
+    `;
+  });
+
+  html += `</div>`;
+  return html;
 }
 
 // Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them

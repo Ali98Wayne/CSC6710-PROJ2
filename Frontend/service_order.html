@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Service Order</title>
+  <link rel="stylesheet" href="order-and-bill.css">
+</head>
+<body>
+<div class="header">
+  <h1>Service Agreement</h1>
+  <div class="subheader">
+    Provider: <strong>Anna Johnson – Home Cleaning Services</strong><br>
+    Document Generated: {{generated_date}}
+  </div>
+</div>
+<div class="content-container">
+    <div class="section-title">Order Information</div>
+    <table class="info-table">
+    <tr><td><strong>Service Request ID:</strong></td><td>{{request_id}}</td></tr>
+    <tr><td><strong>Agreement Date:</strong></td><td>{{agreement_date}}</td></tr>
+    </table>
+
+    <div class="section-title">Client Information</div>
+    <table class="info-table">
+    <tr><td><strong>Client Name:</strong></td><td>{{client_name}}</td></tr>
+    <tr><td><strong>Client Address:</strong></td><td>{{client_address}}</td></tr>
+    <tr><td><strong>Phone:</strong></td><td>{{client_phone}}</td></tr>
+    <tr><td><strong>Email:</strong></td><td>{{client_email}}</td></tr>
+    </table>
+
+    <div class="section-title">Service Details</div>
+    <table class="info-table">
+    <tr><td><strong>Service Address:</strong></td><td>{{service_address}}</td></tr>
+    <tr><td><strong>Cleaning Type:</strong></td><td>{{cleaning_type}}</td></tr>
+    <tr><td><strong>Number of Rooms:</strong></td><td>{{rooms}}</td></tr>
+    <tr><td><strong>Preferred Date:</strong></td><td>{{preferred_date}}</td></tr>
+    <tr><td><strong>Agreed Price:</strong></td><td>{{budget}}</td></tr>
+    </table>
+
+    {{notes_section}}
+    {{photos_section}}
+</div>
+<div class="legal">
+  By accepting this agreement, the client acknowledges all service terms and the agreed-upon price. 
+  This document serves as a legally recognized service contract between the client and Anna Johnson.
+</div>
+<button onclick="window.print()">Print Agreement</button>
+</body>
+</html>

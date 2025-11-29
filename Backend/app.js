@@ -219,6 +219,25 @@ app.get('/listServiceOrders', async (request, response) => {
     .catch(err => console.log(err));
 });
 
+// Get a user corresponding to a specific user ID
+app.get('/getUser/:userId', async (request, response) => {
+  const { userId } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.getUser(userId);
+
+    if (!result) {
+      return response.json({ success: false, error: "User Not Found" });
+    }
+
+    response.json({ success: true, request: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
+});
+
 // Get a service order corresponding to a specific request ID
 app.get('/getRequest/:requestId', async (request, response) => {
   const { requestId } = request.params;
@@ -237,6 +256,39 @@ app.get('/getRequest/:requestId', async (request, response) => {
     response.json({ success: false, error: err.message });
   }
 });
+
+// Get a service bill corresponding to a specific request ID
+app.get('/getBill/:requestId', async (request, response) => {
+  const { requestId } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.getBill(requestId);
+
+    if (!result) {
+      return response.json({ success: false, error: "Service Bill Not Found" });
+    }
+
+    response.json({ success: true, request: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
+});
+
+// Get a service bill's history corresponding to a specific bill id
+app.get('/getBillHistory/:billId', async (req, res) => {
+  const { billId } = req.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.getBillHistory(billId);
+    res.json({ success: true, history: result });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
 
 // Generate a service order corresponding to a specific client from the service order list
 app.get('/generateServiceOrder/:requestId', async (request, response) => {
