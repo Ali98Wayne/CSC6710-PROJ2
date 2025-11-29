@@ -13,6 +13,10 @@
     <!-- Sign up section -->
     <div id="signup-section">
       <h2>Sign Up</h2>
+      <p>Already have an account?
+        <button id="to-login">Log in</button>
+      </p>
+      <br>
       <label>First Name:</label>
       <input type="text" id="signup-firstname">
       <br><br>
@@ -60,26 +64,21 @@
       <input type="password" id="signup-password">
       <br><br>
       <button id="signup-btn">Sign Up</button>
-      <br><br>
-      <p>Already have an account?
-        <button id="to-login">Log in</button>
-      </p>
       </div>
 
     <!-- Log in section -->
     <div id="login-section">
       <h2>Login</h2>
+      <p>Don't have an account?
+        <button id="to-signup">Sign Up</button>
+      </p>
+      <br>
       <label>Username:</label>
       <input type="text" id="user-input">
       <br><br>
       <label>Password:</label>
       <input type="password" id="pass-input">
-      <br><br>
       <button id="login-btn">Login</button>
-      <br><br>
-      <p>Don't have an account?
-        <button id="to-signup">Sign Up</button>
-      </p>
     </div>
 
     <!-- Toggleable profile section, only accessible to logged in users -->
@@ -94,22 +93,29 @@
     <!-- Service request section-->
     <div id="service-request">
       <h2>Service Request Form</h2>
-      <input type="text" id="service-address" placeholder="Service Address">
+      <label>Service Address:</label>
+      <input type="text" id="service-address" placeholder="Service Street">
         <input type="text" id="service-address-city" placeholder="City">
         <select id="service-address-state" class="state-select"></select>
         <br><br>
         <input type="number" id="service-address-zip" placeholder="Zip Code">
+      <label>Cleaning Type:</label>
       <select id="cleaning-type">
           <option value="Basic">Basic</option>
           <option value="Deep Cleaning">Deep Cleaning</option>
           <option value="Move-Out">Move-Out</option>
       </select>
       <br><br>
-      <input type="number" id="room-amount" placeholder="Number of Rooms">
-      <input type="datetime-local" id="preferred-date-time" placeholder="Preferred Date/Time">
+      <label>Number of Rooms:</label>
+      <input type="number" id="room-amount" placeholder="Rooms">
+      <label>Preferred Date/Time:</label>
+      <input type="datetime-local" id="preferred-date-time">
       <br><br>
+      <label>Proposed Budget:</label>
       <input type="number" id="proposed-budget" placeholder="Proposed Budget">
-      <input type="text" id="notes" placeholder="Notes (Optional)" maxlength="500">
+      <label>Notes (Optional):</label>
+      <input type="text" id="notes" placeholder="Notes" maxlength="500">
+      <label>Photo Links (Optional):</label>
       <div id="photo-fields"> </div>
       <button id="add-photo-button">Add Photo</button>
       <br><br>

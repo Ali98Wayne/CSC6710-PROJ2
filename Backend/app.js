@@ -296,7 +296,6 @@ app.get('/clientLoadRequests/:username', async (req, res) => {
 });
 
 // Fetch all pending requests that need Anna's quote
-// Fetch all pending requests that need Anna's quote
 app.get('/pendingRequests', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
