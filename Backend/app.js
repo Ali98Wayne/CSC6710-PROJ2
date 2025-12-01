@@ -402,6 +402,25 @@ app.post('/client/pay-bill', async (req, res) => {
     }
 });
 
+// Anna revises a bill (adjusts amount, adds note)
+app.post('/reviseBill', async (req, res) => {
+    const { username, billId, newAmount, note } = req.body;
+    
+    if (!username || !billId || !newAmount) {
+        return res.json({ success: false, error: "Missing required fields" });
+    }
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.reviseBill(username, billId, newAmount, note);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 // Listen on the fixed port: 5050
 app.listen(5050, () => {
 });

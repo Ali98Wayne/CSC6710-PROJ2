@@ -30,6 +30,15 @@ connection.connect((err) => {
      console.log('db ' + connection.state);    // to see if the DB is connected or not
 });
 
+const pool = mysql.createPool({
+    connectionLimit: 10,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE,
+    port: process.env.DB_PORT
+});
+
 // the following are database functions, 
 
 class DbService{
@@ -309,42 +318,58 @@ class DbService{
     }
 
     // function to allow Anna to revise a bill (adjust amount, add note) and store revision in Bill_History
-    async reviseBill(responder_username, billId, newAmount, note) {
-        try {
-            // resolve Anna's user_id
-            const responderId = await new Promise((resolve, reject) => {
-                const q = "SELECT user_id FROM Users WHERE username = ?";
-                connection.query(q, [responder_username], (err, results) => {
-                    if (err) reject(err);
-                    else if (!results || results.length === 0) reject(new Error("Responder not found"));
-                    else resolve(results[0].user_id);
+async reviseBill(responder_username, billId, newAmount, note) {
+    // We assume 'pool' is defined earlier in this file.
+    return new Promise((resolve, reject) => {
+        pool.getConnection(async (err, connection) => {
+            if (err) {
+                console.error("Error getting connection from pool:", err);
+                return reject(new Error("Database connection error."));
+            }
+
+            try {
+                // resolve Anna's user_id
+                const responderId = await new Promise((resolve, reject) => {
+                    const q = "SELECT user_id FROM Users WHERE username = ?";
+                    connection.query(q, [responder_username], (err, results) => {
+                        if (err) reject(err);
+                        else if (!results || results.length === 0) reject(new Error("Responder not found"));
+                        else resolve(results[0].user_id);
+                    });
                 });
-            });
 
-            // insert revision into Bill_History
-            await new Promise((resolve, reject) => {
-                const q = `
-                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, new_amount, note)
-                    VALUES (?, ?, 'Anna', ?, ?)
-                `;
-                connection.query(q, [billId, responderId, newAmount ?? null, note ?? null], (err, res) => err ? reject(err) : resolve(res));
-            });
+                // insert revision into Bill_History
+                await new Promise((resolve, reject) => {
+                    const q = `
+                        INSERT INTO Bill_History (bill_id, responder_id, responder_type, new_amount, note)
+                        VALUES (?, ?, 'Anna', ?, ?)
+                    `;
+                    connection.query(q, [billId, responderId, newAmount ?? null, note ?? null], (err, res) => err ? reject(err) : resolve(res));
+                });
 
-            // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
-            await new Promise((resolve, reject) => {
-                const q = `
-                    UPDATE Bills
-                    SET bill_amount = ?, status = 'Unpaid'
-                    WHERE bill_id = ?
-                `;
-                connection.query(q, [newAmount, billId], (err, res) => err ? reject(err) : resolve(res));
-            });
+                // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
+                await new Promise((resolve, reject) => {
+                    const q = `
+                        UPDATE Bills
+                        SET bill_amount = ?, status = 'Unpaid'  /* FIX: Changed 'bill_status' to 'status' */
+                        WHERE bill_id = ?
+                    `;
+                    connection.query(q, [newAmount, billId], (err, res) => err ? reject(err) : resolve(res));
+                });
 
-            return { success: true };
-        } catch (err) {
-            throw err;
-        }
-    }
+                resolve({ success: true });
+            } catch (err) {
+                // If any query fails, reject the main promise
+                reject(err);
+            } finally {
+                // IMPORTANT: Release the connection back to the pool
+                if (connection) {
+                    connection.release();
+                }
+            }
+        });
+    });
+}
 
     // function to fetch bill negotiation history for a given bill
     async getBillHistory(billId) {
