@@ -30,15 +30,6 @@ connection.connect((err) => {
      console.log('db ' + connection.state);    // to see if the DB is connected or not
 });
 
-const pool = mysql.createPool({
-    connectionLimit: 10,
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_DATABASE,
-    port: process.env.DB_PORT
-});
-
 // the following are database functions, 
 
 class DbService{
@@ -275,8 +266,13 @@ class DbService{
     // function to mark a bill as paid (client pays immediately)
     async payBill(billId) {
         try {
-            const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
-            const [result] = await this.pool.promise().query(query, [billId]);
+            const result = await new Promise((resolve, reject) => {
+                const query = `UPDATE Bills SET bill_status = 'Paid', note = 'Paid by client', payment_date = CURRENT_TIMESTAMP() WHERE bill_id = ?`;
+                connection.query(query, [billId], (err, res) => {
+                    if (err) reject(err);
+                    else resolve(res);
+                });
+            });
             return result;
         } catch (err) {
             throw err;
@@ -307,7 +303,7 @@ class DbService{
 
             // update bill status to Disputed
             await new Promise((resolve, reject) => {
-                const q = "UPDATE Bills SET status = 'Disputed' WHERE bill_id = ?";
+                const q = "UPDATE Bills SET bill_status = 'Disputed' WHERE bill_id = ?";
                 connection.query(q, [billId], (err, res) => err ? reject(err) : resolve(res));
             });
 
@@ -318,58 +314,42 @@ class DbService{
     }
 
     // function to allow Anna to revise a bill (adjust amount, add note) and store revision in Bill_History
-async reviseBill(responder_username, billId, newAmount, note) {
-    // We assume 'pool' is defined earlier in this file.
-    return new Promise((resolve, reject) => {
-        pool.getConnection(async (err, connection) => {
-            if (err) {
-                console.error("Error getting connection from pool:", err);
-                return reject(new Error("Database connection error."));
-            }
-
-            try {
-                // resolve Anna's user_id
-                const responderId = await new Promise((resolve, reject) => {
-                    const q = "SELECT user_id FROM Users WHERE username = ?";
-                    connection.query(q, [responder_username], (err, results) => {
-                        if (err) reject(err);
-                        else if (!results || results.length === 0) reject(new Error("Responder not found"));
-                        else resolve(results[0].user_id);
-                    });
+    async reviseBill(billId, newAmount, note) {
+        try {
+            // resolve client id
+            const clientId = await new Promise((resolve, reject) => {
+                const q = "SELECT client_id FROM Bills WHERE bill_id = ?;";
+                connection.query(q, [billId], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Client not found"));
+                    else resolve(results[0].client_id);
                 });
+            });
 
-                // insert revision into Bill_History
-                await new Promise((resolve, reject) => {
-                    const q = `
-                        INSERT INTO Bill_History (bill_id, responder_id, responder_type, new_amount, note)
-                        VALUES (?, ?, 'Anna', ?, ?)
-                    `;
-                    connection.query(q, [billId, responderId, newAmount ?? null, note ?? null], (err, res) => err ? reject(err) : resolve(res));
-                });
+            // insert revision into Bill_History
+            await new Promise((resolve, reject) => {
+                const q = `
+                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, new_amount, note)
+                    VALUES (?, ?, 'Anna', ?, ?)
+                `;
+                connection.query(q, [billId, clientId, newAmount ?? null, note ?? null], (err, res) => err ? reject(err) : resolve(res));
+            });
 
-                // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
-                await new Promise((resolve, reject) => {
-                    const q = `
-                        UPDATE Bills
-                        SET bill_amount = ?, status = 'Unpaid'  /* FIX: Changed 'bill_status' to 'status' */
-                        WHERE bill_id = ?
-                    `;
-                    connection.query(q, [newAmount, billId], (err, res) => err ? reject(err) : resolve(res));
-                });
+            // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
+            await new Promise((resolve, reject) => {
+                const q = `
+                    UPDATE Bills
+                    SET bill_amount = ?, bill_status = 'Unpaid', due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                    WHERE bill_id = ?
+                `;
+                connection.query(q, [newAmount, billId], (err, res) => err ? reject(err) : resolve(res));
+            });
 
-                resolve({ success: true });
-            } catch (err) {
-                // If any query fails, reject the main promise
-                reject(err);
-            } finally {
-                // IMPORTANT: Release the connection back to the pool
-                if (connection) {
-                    connection.release();
-                }
-            }
-        });
-    });
-}
+            return { success: true };
+        } catch (err) {
+            throw err;
+        }
+    }
 
     // function to fetch bill negotiation history for a given bill
     async getBillHistory(billId) {
@@ -389,16 +369,6 @@ async reviseBill(responder_username, billId, newAmount, note) {
             });
 
             return response;
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    async payBill(billId) {
-        try {
-            const query = `UPDATE Bills SET status = 'Paid', note = 'Paid by client' WHERE bill_id = ?`;
-            const [result] = await this.pool.promise().query(query, [billId]);
-            return result;
         } catch (err) {
             throw err;
         }
@@ -502,9 +472,9 @@ async reviseBill(responder_username, billId, newAmount, note) {
                         SELECT DISTINCT
                         u.user_id AS client_id, u.username, u.first_name, u.last_name
                         FROM Users u
-                        JOIN Request_Cleaning r ON u.user_id = r.client_id
-                        WHERE r.bill_status = 'Unpaid'
-                        AND r.bill_due_date < (CURDATE() - INTERVAL 7 DAY);
+                        JOIN Bills b ON u.user_id = b.client_id
+                        WHERE b.bill_status = 'Unpaid'
+                        AND b.due_date < (CURDATE() - INTERVAL 7 DAY);
                      `;
                      connection.query(query, (err, results) => {
                          if(err) reject(new Error(err.message));
@@ -570,7 +540,7 @@ async reviseBill(responder_username, billId, newAmount, note) {
         try {
             const query = `
                 SELECT * FROM Bills
-                WHERE status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
+                WHERE bill_status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
             `;
             const response = await new Promise((resolve, reject) => {
                 connection.query(query, (err, results) => {
@@ -721,7 +691,7 @@ async reviseBill(responder_username, billId, newAmount, note) {
 
             const insertResult = await new Promise((resolve, reject) => {
                 const query = `
-                    INSERT INTO Bills (request_id, client_id, bill_amount, status, due_date)
+                    INSERT INTO Bills (request_id, client_id, bill_amount, bill_status, due_date)
                     VALUES (?, ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
                 `;
                 connection.query(
@@ -738,8 +708,20 @@ async reviseBill(responder_username, billId, newAmount, note) {
 
             await new Promise((resolve, reject) => {
                 const query = `
-                    UPDATE Request_Cleaning 
-                    SET bill_generated = 1, bill_status = 'Unpaid'
+                    UPDATE Request_Cleaning
+                    SET bill_generated = 1
+                    WHERE request_id = ? AND order_generated = 0;
+                `;
+                connection.query(query, [requestId], (err, result) => {
+                    if (err) reject(new Error(err.message));
+                    else resolve(result);
+                });
+            });
+
+            await new Promise((resolve, reject) => {
+                const query = `
+                    UPDATE Bills 
+                    SET bill_status = 'Unpaid'
                     WHERE request_id = ?;
                 `;
                 connection.query(query, [requestId], (err, result) => {
@@ -760,8 +742,9 @@ async reviseBill(responder_username, billId, newAmount, note) {
                 const query = `
                     SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
                         r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-                        r.notes
+                        r.notes, u.username
                     FROM Request_Cleaning r
+                    INNER JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q 
                         ON r.request_id = q.request_id AND q.responder_type='Anna'
                     WHERE q.quote_id IS NULL   -- <-- Only requests that Anna hasn't quoted yet
@@ -824,7 +807,7 @@ async reviseBill(responder_username, billId, newAmount, note) {
             // Attach bills for each request
             for (let req of requests) {
                 const bills = await new Promise((resolve, reject) => {
-                    const q = `SELECT bill_id, bill_amount, status AS bill_status, due_date 
+                    const q = `SELECT bill_id, bill_amount, bill_status, due_date 
                             FROM Bills WHERE request_id = ?`;
                     connection.query(q, [req.request_id], (err, results) => {
                     if (err) reject(err);

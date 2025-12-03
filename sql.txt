@@ -36,8 +36,6 @@ CREATE TABLE Request_Cleaning(
    photo_urls JSON NULL,
    request_date DATE DEFAULT CURRENT_DATE,
    quote_accept_date DATE,
-   bill_status ENUM('Paid', 'Unpaid'),
-   bill_due_date DATE,
    order_generated TINYINT(1) DEFAULT 0,
    bill_generated TINYINT(1) DEFAULT 0,
    FOREIGN KEY (client_id) REFERENCES Users(user_id)
@@ -65,7 +63,7 @@ CREATE TABLE Bills (
     request_id INT NOT NULL,        -- Links to the service request
     client_id INT NOT NULL,         -- Who is being billed
     bill_amount DECIMAL(10,2) NOT NULL,
-    status ENUM('Paid', 'Unpaid', 'Disputed') DEFAULT 'Unpaid',
+    bill_status ENUM('Paid', 'Unpaid', 'Disputed') DEFAULT 'Unpaid',
     due_date DATE NOT NULL,
     payment_date DATE,              -- Filled when client pays
     note TEXT,                      -- Any additional note (dispute, explanation)
@@ -108,8 +106,8 @@ LIMIT 10;
 
 -- Bad clients query
 SELECT DISTINCT u.user_id AS client_id, u.username, u.first_name, u.last_name
-FROM Users u JOIN Request_Cleaning r ON u.user_id = r.client_id
-WHERE r.bill_status = 'Unpaid' AND r.bill_due_date < (CURDATE() - INTERVAL 7 DAY);
+FROM Users u JOIN Bills b ON u.user_id = b.client_id
+WHERE b.bill_status = 'Unpaid' AND b.due_date < (CURDATE() - INTERVAL 7 DAY);
 
 -- Uncommitted clients query
 SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
@@ -125,7 +123,7 @@ WHERE r.client_id IS NULL
 
 -- Overdue bills query
 SELECT * FROM Bills
-WHERE status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
+WHERE bill_status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
 
 -- Good clients query
 SELECT u.user_id, u.first_name, u.last_name, u.email

@@ -388,8 +388,8 @@ app.post('/resubmitRequest', async (req, res) => {
 });
 
 app.post('/client/pay-bill', async (req, res) => {
-    const { billId, username } = req.body;
-    if (!billId || !username) return res.json({ success: false, error: 'Missing info' });
+    const { billId } = req.body;
+    if (!billId) return res.json({ success: false, error: 'Missing info' });
 
     const db = dbService.getDbServiceInstance();
 
@@ -404,16 +404,16 @@ app.post('/client/pay-bill', async (req, res) => {
 
 // Anna revises a bill (adjusts amount, adds note)
 app.post('/reviseBill', async (req, res) => {
-    const { username, billId, newAmount, note } = req.body;
+    const { billId, newAmount, note } = req.body;
     
-    if (!username || !billId || !newAmount) {
+    if (!billId || !newAmount) {
         return res.json({ success: false, error: "Missing required fields" });
     }
 
     const db = dbService.getDbServiceInstance();
 
     try {
-        await db.reviseBill(username, billId, newAmount, note);
+        await db.reviseBill(billId, newAmount, note);
         res.json({ success: true });
     } catch (err) {
         console.error(err);

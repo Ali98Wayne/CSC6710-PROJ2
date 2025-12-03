@@ -317,7 +317,6 @@ document.addEventListener("DOMContentLoaded", function() {
             clientLoadRequests(currentUser); // Load requests (includes quotes + nested bills)
             loadBills(currentUser); 
         } else if (isAnnaUser) {
-          localStorage.setItem("loggedInUser", "Anna");
             signupSection.style.display = "none";
             loginSection.style.display = "none";
             serviceRequest.style.display = "none";
@@ -570,7 +569,7 @@ const overdueBillsBtn = document.querySelector('#overdue-bills-btn');
 overdueBillsBtn.onclick = function () {
     fetch('http://localhost:5050/overdueBills')
     .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['bill_id', 'request_id', 'client_id', 'bill_amount', 'status', 'due_date', 'payment_date', 'note']))
+    .then(data => searchResultsTable(data['data'], ['bill_id', 'request_id', 'client_id', 'bill_amount', 'bill_status', 'due_date', 'payment_date', 'note']))
     .catch(err => console.error("Overdue Bills search error:", err));
 }
 
@@ -1053,46 +1052,40 @@ function closePayForm() {
   if (modal) modal.remove();
 }
 
-// Simulated payment submission — purely front end for the project (keeps original logic/comments)
-async function submitPay(billId, requestId) {
-  const name = document.getElementById('pay-name').value.trim();
-  const card = document.getElementById('pay-card').value.trim();
-  const exp = document.getElementById('pay-exp').value.trim();
-  const cvv = document.getElementById('pay-cvv').value.trim();
+async function submitPay(billId) {
+    const name = document.getElementById('pay-name').value.trim();
+    const card = document.getElementById('pay-card').value.trim();
+    const exp = document.getElementById('pay-exp').value.trim();
+    const cvv = document.getElementById('pay-cvv').value.trim();
+    const username = localStorage.getItem('loggedInUser');
 
-  if (!name || !card || !exp || !cvv) {
-    alert("Please fill out all payment fields.");
-    return;
-  }
+    if (!name || !card || !exp || !cvv || !username) {
+        alert("Please fill out all payment fields.");
+        return;
+    }
 
-  // close the popup
-  closePayForm();
+    closePayForm();
 
-  // find the bill container
-  const billSection = document.querySelector(`.bill-section-${billId}-${requestId}`);
-  if (!billSection) return;
+    try {
+        const response = await fetch('/client/pay-bill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billId, username })
+        });
 
-  // update the bill UI to "paid"
-  billSection.innerHTML = `
-    <div style="
-      margin-top:10px;
-      padding:12px;
-      border:2px solid #007BFF;
-      border-radius:6px;
-      background: transparent;
-      color: green;
-      font-weight: bold;
-      text-align:center;
-    ">
-      Payment Submitted Successfully ✅<br><br>
-      Name: ${name}<br>
-      Card Ending: **** ${card.slice(-4)}<br>
-      Thank you for your payment!
-    </div>
-  `;
+        const data = await response.json();
 
-  // optionally refresh UI (this does NOT reload payment state)
-
+        if (data.success) {
+            alert("Payment successful! Reloading request list...");
+            await clientLoadRequests(username); 
+        } else {
+            alert('Payment failed: ' + (data.error || 'Unknown error.'));
+            await clientLoadRequests(username);
+        }
+    } catch (error) {
+        console.error('Payment network error:', error);
+        alert('A network error occurred during payment.');
+    }
 }
 
 function renderBills(bills) {
@@ -1105,46 +1098,20 @@ function renderBills(bills) {
     return;
   }
 
-bills.forEach(bill => {
-    const div = document.createElement('div');
-    div.className = 'bill-item';
-    const due = new Date(bill.due_date).toLocaleDateString();
+  bills.forEach(bill => {
+      const div = document.createElement('div');
+      div.className = 'bill-item';
+      const due = new Date(bill.due_date).toLocaleDateString();
 
-    // Determine buttons based on user type (Anna vs Client)
-    let actionButtons = '';
-    
-    if (isAnnaUser) {
-        // Anna can revise bills, especially if they are Disputed
-        actionButtons += `<button class="revise-bill-btn" data-id="${bill.bill_id}" data-amount="${bill.bill_amount}">Revise Bill</button>`;
-    } else {
-        // Clients can Pay or Dispute if unpaid
-        if (bill.status !== 'Paid') {
-            actionButtons += `<button class="pay-bill-btn" data-id="${bill.bill_id}">Pay</button>`;
-            actionButtons += `<button class="dispute-bill-btn" data-id="${bill.bill_id}">Dispute</button>`;
-        }
-    }
-    // Everyone can view the bill details
-    actionButtons += `<button class="view-bill-btn" data-id="${bill.bill_id}">View</button>`;
-
-    div.innerHTML = `
-      <strong>Bill ID:</strong> ${bill.bill_id} |
-      <strong>Amount:</strong> $${Number(bill.bill_amount).toFixed(2)} |
-      <strong>Status:</strong> ${bill.status} |
-      <strong>Due:</strong> ${due}
-      <div style="margin-top:6px;">
-        ${actionButtons}
-      </div>
-    `;
-    billsList.appendChild(div);
-  });
-
-  // attach handlers
-  billsList.querySelectorAll('.pay-bill-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const billId = e.target.dataset.id;
-      await payBill(billId);
+      // Determine buttons based on user type (Anna vs Client)
+      let actionButtons = '';
+      
+      // Clients can Pay or Dispute if unpaid
+      if (bill.bill_status !== 'Paid') {
+          actionButtons += `<button class="pay-bill-btn" data-id="${bill.bill_id}">Pay</button>`;
+          actionButtons += `<button class="dispute-bill-btn" data-id="${bill.bill_id}">Dispute</button>`;
+      }
     });
-  });
 
   billsList.querySelectorAll('.dispute-bill-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
@@ -1190,29 +1157,6 @@ async function loadBills(username) {
     renderBills(bills);
   } catch (err) {
     console.error('Failed to load bills:', err);
-  }
-}
-
-async function payBill(billId) {
-  const username = localStorage.getItem('loggedInUser');
-  if (!username) { alert('Not logged in'); return; }
-  try {
-    const res = await fetch('/client/pay-bill', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, billId, note: 'Paid via UI' })
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('Payment recorded.');
-      loadBills(username);
-      clientLoadRequests(username); // refresh both lists
-    } else {
-      alert('Payment error: ' + (data.error || 'Unknown'));
-    }
-  } catch (err) {
-    console.error(err);
-    alert('Payment failed.');
   }
 }
 
@@ -1407,17 +1351,6 @@ function submitResubmittedRequest(requestId) {
 
 // Function to allow Anna to revise a bill amount and add a note
 async function reviseBillUI(billId, oldAmount) {
-    // FIX: Retrieve username directly from localStorage. 
-    // This is the correct, reliable method for functions outside DOMContentLoaded.
-    const username = localStorage.getItem('loggedInUser'); 
-    
-    // Safety check: The revision button is only visible to Anna, 
-    // but this prevents errors if the user logs out mid-session.
-    if (username !== 'Anna') { 
-        alert('Access denied. Only Anna can revise bills.'); 
-        return;
-    }
-
     const newAmount = prompt(`Enter new bill amount (Current: $${oldAmount}):`, oldAmount);
     // Ensure the new amount is a valid number
     if (newAmount === null || isNaN(Number(newAmount)) || Number(newAmount) <= 0) {
@@ -1432,7 +1365,7 @@ async function reviseBillUI(billId, oldAmount) {
         const res = await fetch('/reviseBill', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, billId, newAmount: Number(newAmount).toFixed(2), note })
+            body: JSON.stringify({ billId, newAmount: Number(newAmount).toFixed(2), note })
         });
         
         const data = await res.json();
