@@ -73,17 +73,58 @@ app.post('/addQuote', async (req, res) => {
     }
 });
 
-app.post('/updateQuote', async (req, res) => {
-  const { requestId, status, note } = req.body;
-  const db = dbService.getDbServiceInstance();
+app.post('/renegotiateQuote', async (req, res) => {
+    const { quoteId, note } = req.body; 
 
-  try {
-    await db.updateQuote(requestId, status, note);
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.json({ success: false, error: err.message });
-  }
+    if (!quoteId || !note) {
+        return res.json({ success: false, error: "Missing required fields: quoteId, note, or clientId." });
+    }
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.renegotiateQuote(quoteId, note); 
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+app.post('/rejectQuote', async (req, res) => {
+    const { quoteId, note } = req.body;
+
+    if (!quoteId || !note) {
+        return res.json({ success: false, error: "Missing required fields: quoteId and note." });
+    }
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.rejectQuote(quoteId, note);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+app.post('/cancelQuote', async (req, res) => {
+    const { quoteId, note } = req.body;
+
+    if (!quoteId || !note) {
+        return res.json({ success: false, error: "Missing required fields: quoteId and note." });
+    }
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.cancelQuote(quoteId, note);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
 });
 
 app.post('/client/accept-quote', async (req, res) => {
@@ -110,6 +151,25 @@ app.post('/counterQuote', async (req, res) => {
     const result = await db.counterQuote(requestId, responderId, note);
     res.json({ success: true, result });
   } catch(err) { res.json({ success: false, error: err.message }); }
+});
+
+// Anna resubmits a quote
+app.post('/resubmitQuote', async (req, res) => {
+    const { quoteId, newPrice, newStart, newEnd, note } = req.body; 
+
+    if (!quoteId || !newPrice || !newStart || !newEnd || !note) {
+        return res.json({ success: false, error: "Missing required fields: quoteId, newPrice, newStart, newEnd, or note." });
+    }
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.resubmitQuote(quoteId, newPrice, newStart, newEnd, note); 
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
 });
 
 // Search users that have the most service orders. "request" is unused, must be a parameter so "response" isn't mistaken for a request and throws an error
@@ -359,32 +419,16 @@ app.get('/pendingRequests', async (req, res) => {
     }
 });
 
-app.post('/resubmitRequest', async (req, res) => {
-  const db = dbService.getDbServiceInstance();
-  const { requestId, username, requestAddress, requestAddressCity, requestAddressState,
-          requestAddressZip, requestCleaningType, requestRoomAmount, requestDateTime,
-          requestBudget, requestNotes, photo_urls } = req.body;
-
-  try {
-    const result = await db.resubmitRequest({
-      requestId,
-      username,
-      requestAddress,
-      requestAddressCity,
-      requestAddressState,
-      requestAddressZip,
-      requestCleaningType,
-      requestRoomAmount,
-      requestDateTime,
-      requestBudget,
-      requestNotes,
-      photo_urls
-    });
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.json({ success: false, error: err.message });
-  }
+// Fetch all pending quotes that need Anna's resubmission
+app.get('/pendingQuotes', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const requests = await db.getPendingQuotesForAnna();
+        res.json({ requests });
+    } catch (err) {
+        console.error('Error fetching pending quotes:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/client/pay-bill', async (req, res) => {
@@ -417,6 +461,21 @@ app.post('/reviseBill', async (req, res) => {
         res.json({ success: true });
     } catch (err) {
         console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
+app.post('/client/disputeBill', async (req, res) => {
+    const { billId, note, userId } = req.body;
+    
+    if (!billId || !note || !userId) return res.json({ success: false, error: "Missing info" });
+
+    const db = dbService.getDbServiceInstance();
+    try {
+        await db.disputeBill(billId, note, userId);
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Error disputing bill:", err);
         res.json({ success: false, error: err.message });
     }
 });

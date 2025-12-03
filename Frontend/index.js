@@ -39,8 +39,8 @@ document.addEventListener("DOMContentLoaded", function() {
       document.querySelector("#signup-creditcard-month").value = "January";
     }
 
-    function renderAnnaQuoteUI(requests) {
-      const container = document.getElementById('pending-quotes-list');
+    function renderAnnaRequestUI(requests) {
+      const container = document.getElementById('pending-requests-list');
       container.innerHTML = '';
 
       requests.forEach(req => {
@@ -64,6 +64,38 @@ document.addEventListener("DOMContentLoaded", function() {
 
           div.querySelector('.reject-request-btn')
             .addEventListener('click', () => rejectRequest(req.request_id));
+
+          container.appendChild(div);
+      });
+    }
+
+    function renderAnnaQuoteUI(requests) {
+      const container = document.getElementById('pending-quotes-list');
+      container.innerHTML = '';
+
+      requests.forEach(req => {
+          const div = document.createElement('div');
+          div.classList.add('pending-quote');
+
+          div.innerHTML = `
+              <p>Quote #${req.quote_id} from ${req.username}</p>
+              <input type="number" placeholder="Quote Price" id="quote-price-${req.quote_id}">
+              <input type="datetime-local" id="quote-start-${req.quote_id}">
+              <input type="datetime-local" id="quote-end-${req.quote_id}">
+              <input type="text" placeholder="Note" id="quote-note-${req.quote_id}">
+              <button class="resubmit-quote-btn">Resubmit Quote</button>
+              <button class="reject-quote-btn">Reject</button>
+              <button class="cancel-quote-btn">Cancel</button>
+          `;
+
+          div.querySelector('.resubmit-quote-btn')
+            .addEventListener('click', () => resubmitQuote(req.quote_id));
+
+          div.querySelector('.reject-quote-btn')
+            .addEventListener('click', () => rejectQuote(req.quote_id));
+
+          div.querySelector('.cancel-quote-btn')
+            .addEventListener('click', () => cancelQuote(req.quote_id));
 
           container.appendChild(div);
       });
@@ -141,6 +173,107 @@ document.addEventListener("DOMContentLoaded", function() {
         })
         .catch(err => console.error("Error rejecting request:", err));
     }
+
+    function resubmitQuote(quoteId) {
+        const newPrice = document.getElementById(`quote-price-${quoteId}`).value;
+        const newStart = document.getElementById(`quote-start-${quoteId}`).value;
+        const newEnd = document.getElementById(`quote-end-${quoteId}`).value;
+        const note = document.getElementById(`quote-note-${quoteId}`).value;
+
+        if (!newPrice || !newStart || !newEnd) {
+            alert("Please enter price, start, and end dates for the quote.");
+            return;
+        }
+
+        fetch('/resubmitQuote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              quoteId: quoteId,
+              newPrice: newPrice,
+              newStart: newStart,
+              newEnd: newEnd,
+              note: note
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('Quote successfully resubmitted. Status reset to pending for client.');
+                const reqDiv = document.getElementById(`quote-price-${quoteId}`).closest('.pending-quote');
+                if (reqDiv) reqDiv.remove();
+            } else {
+                alert("Error resubmitting quote: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => console.error("Error resubmitting quote:", err));
+    }
+
+    function rejectQuote(quoteId) {
+        const note = document.getElementById(`quote-note-${quoteId}`).value;
+
+        if (!note.trim()) {
+            alert("Please enter a note before rejecting.");
+            return;
+        }
+
+        fetch('/rejectQuote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                quoteId,
+                responderId: 1, 
+                quotePrice: null,
+                scheduledStart: null,
+                scheduledEnd: null,
+                note: note,
+                status: 'rejected'
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+              alert('Quote successfully rejected.');
+                const reqDiv = document
+                    .getElementById(`quote-price-${quoteId}`)
+                    .closest('.pending-quote');
+                if (reqDiv) reqDiv.remove();
+            } else {
+                alert("Error rejecting quote: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => console.error("Error rejecting quote:", err));
+    }
+
+  function cancelQuote(quoteId) {
+      const note = document.getElementById(`quote-note-${quoteId}`).value;
+
+      if (!note.trim()) {
+          alert("Please enter a note explaining the cancellation.");
+          return;
+      }
+
+      fetch('/cancelQuote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+              quoteId: quoteId,
+              note: note,
+          })
+      })
+      .then(res => res.json())
+      .then(data => {
+          if (data.success) {
+              alert('Quote successfully cancelled.');
+              // Remove the item from Anna's list after submission (if successful)
+              const reqDiv = document.getElementById(`quote-price-${quoteId}`).closest('.pending-quote');
+              if (reqDiv) reqDiv.remove();
+          } else {
+              alert("Error cancelling quote: " + (data.error || "Unknown error"));
+          }
+      })
+      .catch(err => console.error("Error cancelling quote:", err));
+  }
 
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
@@ -325,6 +458,11 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById("client-requests").innerHTML = "";
             pendingQuotesSection.style.display = "block";
             fetch('/pendingRequests')
+            .then(res => res.json())
+            .then(data => {
+                renderAnnaRequestUI(data.requests);
+            });
+            fetch('/pendingQuotes')
             .then(res => res.json())
             .then(data => {
                 renderAnnaQuoteUI(data.requests);
@@ -852,7 +990,7 @@ async function viewServiceBill(requestId) {
       .replace("{{generated_date}}", new Date().toLocaleDateString())
       .replace("{{bill_id}}", service_bill.bill_id)
       .replace("{{request_id}}", service_bill.request_id)
-      .replace("{{bill_status}}", service_bill.status)
+      .replace("{{bill_status}}", service_bill.bill_status)
       .replace("{{bill_amount}}", `$${Number(service_bill.bill_amount).toFixed(2)}`)
       .replace("{{due_date}}", new Date(service_bill.due_date).toLocaleDateString())
       .replace("{{payment_date}}", service_bill.payment_date || "Not Paid")
@@ -941,13 +1079,13 @@ function clientLoadRequests(username) {
         } else if (req.quote_status !== 'rejected' && req.quote_price) {
             innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
                               <button onclick="acceptQuote(${req.request_id})">Accept</button> 
-                              <button onclick="resubmitRequest(${req.request_id}, ${req.quote_price})">Dispute</button>
+                              <button onclick="renegotiateQuote(${req.quote_id}, ${req.quote_price})">Renegotiate</button>
                           </div>`;
         } else if (req.quote_status === 'accepted') {
             innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
         } else if (req.quote_status === 'rejected') {
             innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
-            innerHTML += `<button onclick="resubmitRequest(${req.request_id})">Resubmit Request</button>`;
+            innerHTML += `<button onclick="renegotiateQuote(${req.quote_id})">Renegotiate</button>`;
         }
 
         innerHTML += `<div style="margin-top:10px;">`;
@@ -980,7 +1118,7 @@ function clientLoadRequests(username) {
                       : `
                         <div class="bill-buttons" style="margin-top:6px;">
                           <button onclick="openPayForm(${bill.bill_id}, ${req.request_id})">Pay</button>
-                          <button onclick="resubmitRequest(${req.request_id})">Dispute</button>
+                          <button onclick="disputeBill(${bill.bill_id})">Dispute</button>
                         <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
                       `
                   }
@@ -1215,138 +1353,31 @@ function acceptQuote(requestId) {
     .catch(err => console.error(err));
 }
 
-// Counter / negotiate quote
-function counterQuote(requestId, oldPrice) {
-  const newPrice = prompt("Enter your counter price:", oldPrice);
-  if (!newPrice) return;
-  const note = prompt("Enter your counter / negotiation note:");
-  
-  fetch('/updateQuote', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ requestId, quote_price: newPrice, note, status: 'countered' })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      alert(`Counter note submitted for Request #${requestId}`);
-      clientLoadRequests(localStorage.getItem("loggedInUser"));
-    } else {
-      alert("Error: " + (data.error || "Unknown error"));
-    }
-  })
-  .catch(err => console.error(err));
-}
+function renegotiateQuote(quoteId) {
+    const note = prompt("Please enter a note explaining your counteroffer or request for renegotiation:");
 
-function resubmitRequest(requestId, annaQuote = null) {
-  fetch(`/getRequest/${requestId}`) // fetch the request data
+    if (!note || note.trim() === "") {
+        alert("Renegotiation requires a note.");
+        return;
+    }
+
+    fetch('/renegotiateQuote', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quoteId: quoteId,
+            note: note
+        })
+    })
     .then(res => res.json())
     .then(data => {
-      if (!data.success) {
-        alert("Error fetching request details: " + (data.error || "Unknown error"));
-        return;
-      }
-
-      const req = data.request;
-
-      // Prefill the service request form
-      document.querySelector('#service-address').value = req.service_address_street;
-      document.querySelector('#service-address-city').value = req.service_address_city;
-      document.querySelector('#service-address-state').value = req.service_address_state;
-      document.querySelector('#service-address-zip').value = req.service_address_zip;
-      document.querySelector('#cleaning-type').value = req.cleaning_type;
-      document.querySelector('#room-amount').value = req.rooms;
-      document.querySelector('#preferred-date-time').value = new Date(req.preferred_date).toISOString().slice(0,16);
-
-      // Use Anna's quote if provided, else original proposed budget
-      document.querySelector('#proposed-budget').value = annaQuote ?? req.proposed_budget;
-      document.querySelector('#notes').value = req.notes || '';
-
-      // Prefill photos if any
-      const photoFields = document.getElementById('photo-fields');
-      photoFields.innerHTML = '';
-      if (req.photo_urls) {
-        const photos = JSON.parse(req.photo_urls);
-        photos.forEach((url, idx) => {
-          const div = document.createElement('div');
-          div.classList.add('photo-field');
-
-          const input = document.createElement('input');
-          input.type = 'text';
-          input.id = `photo-link${idx+1}`;
-          input.value = url;
-          input.placeholder = `Photo ${idx+1}`;
-
-          const removeBtn = document.createElement('button');
-          removeBtn.type = 'button';
-          removeBtn.textContent = 'Remove';
-          removeBtn.addEventListener('click', () => div.remove());
-
-          div.appendChild(input);
-          div.appendChild(removeBtn);
-          photoFields.appendChild(div);
-        });
-      }
-
-      // Scroll to the form
-      document.querySelector('#service-request').scrollIntoView({ behavior: 'smooth' });
-
-      // Override the submit button for this resubmission
-      const submitButton = document.querySelector('#submit-button');
-      submitButton.onclick = function() {
-        submitResubmittedRequest(requestId);
-      };
+        if (data.success) {
+            alert('Renegotiation submitted. Status set to "countered."');
+        } else {
+            alert("Error submitting renegotiation: " + (data.error || "Unknown error"));
+        }
     })
-    .catch(err => console.error(err));
-}
-
-function submitResubmittedRequest(requestId) {
-  const username = localStorage.getItem("loggedInUser");
-  const requestAddress = document.querySelector('#service-address').value.trim();
-  const requestAddressCity = document.querySelector('#service-address-city').value.trim();
-  const requestAddressState = document.querySelector('#service-address-state').value.trim();
-  const requestAddressZip = document.querySelector('#service-address-zip').value.trim();
-  const requestCleaningType = document.querySelector('#cleaning-type').value.trim();
-  const requestRoomAmount = document.querySelector('#room-amount').value.trim();
-  const requestDateTime = document.querySelector('#preferred-date-time').value.trim();
-  const requestBudget = document.querySelector('#proposed-budget').value.trim();
-  const requestNotes = document.querySelector('#notes')?.value.trim() || null;
-  const photo_urls = Array.from(document.querySelectorAll('.photo-field input')).map(inp => inp.value.trim());
-
-  if (!requestAddress || !requestAddressCity || !requestAddressState || !requestAddressZip || 
-      !requestCleaningType || !requestRoomAmount || !requestDateTime || !requestBudget) {
-    alert("Please fill out all fields.");
-    return;
-  }
-
-  fetch('/resubmitRequest', { // NEW server endpoint
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      requestId,
-      username,
-      requestAddress,
-      requestAddressCity,
-      requestAddressState,
-      requestAddressZip,
-      requestCleaningType,
-      requestRoomAmount,
-      requestDateTime,
-      requestBudget,
-      requestNotes,
-      photo_urls: JSON.stringify(photo_urls)
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.success) {
-      alert(`Request #${requestId} resubmitted successfully!`);
-      clientLoadRequests(username); // reload client requests
-    } else {
-      alert("Error: " + (data.error || "Unknown error"));
-    }
-  })
-  .catch(err => console.error(err));
+    .catch(err => console.error("Error submitting renegotiation:", err));
 }
 
 // Function to allow Anna to revise a bill amount and add a note

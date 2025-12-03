@@ -44,14 +44,14 @@ CREATE TABLE Request_Cleaning(
 CREATE TABLE Quotes (
     quote_id INT AUTO_INCREMENT PRIMARY KEY,
     request_id INT NOT NULL,
-    responder_id INT NOT NULL, -- Anna's user_id
+    responder_id INT NOT NULL,
     responder_type ENUM('Anna','Client') NOT NULL DEFAULT 'Anna',
     quote_price DECIMAL(10,2) NULL,
     scheduled_start DATETIME NULL,
     scheduled_end DATETIME NULL,
     note TEXT,
     response_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('pending','accepted','rejected','countered') DEFAULT 'pending',
+    status ENUM('pending','accepted','rejected','countered','canceled') DEFAULT 'pending',
     round INT DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
@@ -71,6 +71,22 @@ CREATE TABLE Bills (
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_bill_client FOREIGN KEY (client_id) REFERENCES Users(user_id)
+);
+
+CREATE TABLE IF NOT EXISTS Quote_History (
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    quote_id INT NOT NULL,
+    client_id INT NOT NULL,
+    responder_type ENUM('Anna','Client') NOT NULL,
+    quote_price DECIMAL(10,2) NULL,
+    scheduled_start DATETIME NULL,
+    scheduled_end DATETIME NULL,
+    status ENUM('pending','accepted','rejected','countered','canceled'),
+    round INT NOT NULL,
+    note TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_quote_id FOREIGN KEY (quote_id) REFERENCES Quotes(quote_id),
+    CONSTRAINT fk_quote_client FOREIGN KEY (client_id) REFERENCES Users(user_id)
 );
 
 CREATE TABLE IF NOT EXISTS Bill_History (
