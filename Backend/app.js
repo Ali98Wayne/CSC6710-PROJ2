@@ -380,7 +380,7 @@ app.get('/generateServiceOrder/:requestId', async (request, response) => {
   }
 });
 
-// Generate a service order corresponding to a specific client from the service order list
+// Generate a service bill corresponding to a specific client from the service order list
 app.get('/generateServiceBill/:requestId', async (request, response) => {
   const { requestId } = request.params;
   const db = dbService.getDbServiceInstance();

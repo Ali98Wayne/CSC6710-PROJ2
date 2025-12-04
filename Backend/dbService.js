@@ -592,11 +592,16 @@ class DbService{
                         r.request_id, r.client_id, r.service_address_street, r.service_address_city, 
                         r.service_address_state, r.service_address_zip, r.cleaning_type, r.rooms, 
                         r.preferred_date, r.proposed_budget, r.request_date, r.order_generated, r.bill_generated,
-                        q.status AS quote_status  -- Fetches the status from the Quotes table
+                        q.status AS quote_status  
                     FROM 
                         Request_Cleaning r
                     LEFT JOIN 
                         Quotes q ON r.request_id = q.request_id 
+                    GROUP BY 
+                        r.request_id, r.client_id, r.service_address_street, r.service_address_city, 
+                        r.service_address_state, r.service_address_zip, r.cleaning_type, r.rooms, 
+                        r.preferred_date, r.proposed_budget, r.request_date, r.order_generated, r.bill_generated, 
+                        q.status
                     ORDER BY r.request_id DESC
                 `;
                 connection.query(query, (err, results) => {
@@ -722,7 +727,7 @@ class DbService{
                 const query = `
                     UPDATE Request_Cleaning
                     SET bill_generated = 1
-                    WHERE request_id = ? AND order_generated = 0;
+                    WHERE request_id = ? AND bill_generated = 0;
                 `;
                 connection.query(query, [requestId], (err, result) => {
                     if (err) reject(new Error(err.message));
@@ -903,20 +908,6 @@ class DbService{
             return { success: true, quoteId: quoteId };
         } catch(err) { 
             throw err; 
-        }
-    }
-
-    async updateQuote(requestId, status, note = null) {
-        try {
-            return await new Promise((resolve, reject) => {
-                const query = `UPDATE Quotes SET status = ?, note = COALESCE(?, note) WHERE request_id = ?`;
-                connection.query(query, [status, note, requestId], (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result);
-                });
-            });
-        } catch (err) {
-            throw err;
         }
     }
 
