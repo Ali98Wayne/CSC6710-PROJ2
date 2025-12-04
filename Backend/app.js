@@ -465,17 +465,17 @@ app.post('/reviseBill', async (req, res) => {
     }
 });
 
-app.post('/client/disputeBill', async (req, res) => {
-    const { billId, note, userId } = req.body;
-    
-    if (!billId || !note || !userId) return res.json({ success: false, error: "Missing info" });
-
+app.post('/client/dispute-bill', async (req, res) => {
+    const { billId, note } = req.body;
+    if (!billId || !note) {
+        return res.json({ success: false, error: 'Missing info' });
+    }
     const db = dbService.getDbServiceInstance();
     try {
-        await db.disputeBill(billId, note, userId);
+        await db.disputeBill(billId, note);
         res.json({ success: true });
     } catch (err) {
-        console.error("Error disputing bill:", err);
+        console.error(err);
         res.json({ success: false, error: err.message });
     }
 });

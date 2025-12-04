@@ -122,14 +122,13 @@ document.addEventListener("DOMContentLoaded", function() {
                 quotePrice: price, 
                 scheduledStart: start, 
                 scheduledEnd: end, 
-                note: note || '', 
-                status: 'quoted' // Mark as handled
+                note: note || ''
             })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                // Remove the request from Anna's UI immediately
+                alert("Successfully submitted quote");
                 const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
                 if (reqDiv) reqDiv.remove();
             } else {
@@ -163,6 +162,7 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
+                alert("Successfully rejected request");
                 const reqDiv = document
                     .getElementById(`quote-price-${requestId}`)
                     .closest('.pending-request');
@@ -222,12 +222,7 @@ document.addEventListener("DOMContentLoaded", function() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 quoteId,
-                responderId: 1, 
-                quotePrice: null,
-                scheduledStart: null,
-                scheduledEnd: null,
-                note: note,
-                status: 'rejected'
+                note: note
             })
         })
         .then(res => res.json())
@@ -1254,18 +1249,7 @@ function renderBills(bills) {
   billsList.querySelectorAll('.dispute-bill-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const billId = e.target.dataset.id;
-      const note = prompt('Enter dispute note:');
-      if (note === null) return; // cancelled
-      await disputeBill(billId, note);
-    });
-  });
-
-  billsList.querySelectorAll('.view-bill-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const billId = e.target.dataset.id;
-      // simple view - open new tab with bill details endpoint if you have one
-      // fallback: alert minimal info
-      alert('Open the Requests/Bills UI or implement a dedicated view endpoint.');
+      await disputeBill(billId);
     });
   });
 
@@ -1298,27 +1282,35 @@ async function loadBills(username) {
   }
 }
 
-async function disputeBill(billId, note) {
-  const username = localStorage.getItem('loggedInUser');
-  if (!username) { alert('Not logged in'); return; }
-  try {
-    const res = await fetch('/client/dispute-bill', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, billId, note })
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('Dispute submitted.');
-      loadBills(username);
-      clientLoadRequests(username); // refresh lists
-    } else {
-      alert('Dispute error: ' + (data.error || 'Unknown'));
+async function disputeBill(billId) {
+    const note = prompt("Please enter a note explaining your bill dispute:");
+
+    if (!note || note.trim() === "") {
+        alert("Bill disputes requires a note.");
+        return;
     }
-  } catch (err) {
-    console.error(err);
-    alert('Failed to submit dispute.');
-  }
+
+    const username = localStorage.getItem('loggedInUser');
+    if (!username) { alert('Not logged in'); return; }
+    
+    try {
+        const res = await fetch('/client/dispute-bill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billId, note })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+            alert('Dispute submitted.');
+            loadBills(username);
+            clientLoadRequests(username);
+        } else alert('Dispute error: ' + (data.error || 'Unknown'));
+
+    } catch (err) {
+        console.error(err);
+        alert('Failed to submit dispute.');
+    }
 }
 
 // Accept the latest quote

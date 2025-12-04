@@ -73,7 +73,7 @@ CREATE TABLE Bills (
     CONSTRAINT fk_bill_client FOREIGN KEY (client_id) REFERENCES Users(user_id)
 );
 
-CREATE TABLE IF NOT EXISTS Quote_History (
+CREATE TABLE Quote_History (
     history_id INT AUTO_INCREMENT PRIMARY KEY,
     quote_id INT NOT NULL,
     client_id INT NOT NULL,
@@ -89,13 +89,15 @@ CREATE TABLE IF NOT EXISTS Quote_History (
     CONSTRAINT fk_quote_client FOREIGN KEY (client_id) REFERENCES Users(user_id)
 );
 
-CREATE TABLE IF NOT EXISTS Bill_History (
+CREATE TABLE Bill_History (
     history_id INT AUTO_INCREMENT PRIMARY KEY,
     bill_id INT NOT NULL,
     responder_id INT NOT NULL,
     responder_type ENUM('Anna','Client') NOT NULL,
     note TEXT,
     new_amount DECIMAL(10,2),
+    bill_status ENUM('Paid', 'Unpaid', 'Disputed'),
+    due_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_history_bill FOREIGN KEY (bill_id) REFERENCES Bills(bill_id),
     CONSTRAINT fk_bill_history_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)

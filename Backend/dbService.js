@@ -284,31 +284,40 @@ class DbService{
     }
 
     // function to allow a client to dispute a bill (adds a Bill_History entry and sets status to 'Disputed')
-    async disputeBill(client_username, billId, note) {
+    async disputeBill(billId, note) {
         try {
             // resolve client id
             const clientId = await new Promise((resolve, reject) => {
-                const q = "SELECT user_id FROM Users WHERE username = ?";
-                connection.query(q, [client_username], (err, results) => {
+                const q = "SELECT client_id FROM Bills WHERE bill_id = ?;";
+                connection.query(q, [billId], (err, results) => {
                     if (err) reject(err);
                     else if (!results || results.length === 0) reject(new Error("Client not found"));
-                    else resolve(results[0].user_id);
+                    else resolve(results[0].client_id);
+                });
+            });
+
+            const billData = await new Promise((resolve, reject) => {
+                const billDataQuery = "SELECT * FROM Bills WHERE bill_id = ?";
+                connection.query(billDataQuery, [billId], (err, results) => {
+                    if (err) reject(err);
+                    else if (results.length === 0) reject(new Error("Bill not found"));
+                    else resolve(results[0]);
                 });
             });
 
             // insert dispute note into Bill_History
             await new Promise((resolve, reject) => {
                 const q = `
-                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note)
-                    VALUES (?, ?, 'Client', ?)
+                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note, new_amount, bill_status, due_date)
+                    VALUES (?, ?, 'Client', ?, ?, 'Disputed', DATE_ADD(CURDATE(), INTERVAL 7 DAY))
                 `;
-                connection.query(q, [billId, clientId, note ?? 'Client dispute'], (err, res) => err ? reject(err) : resolve(res));
+                connection.query(q, [billId, clientId, note, billData.bill_amount], (err, res) => err ? reject(err) : resolve(res));
             });
 
             // update bill status to Disputed
             await new Promise((resolve, reject) => {
-                const q = "UPDATE Bills SET bill_status = 'Disputed' WHERE bill_id = ?";
-                connection.query(q, [billId], (err, res) => err ? reject(err) : resolve(res));
+                const q = "UPDATE Bills SET bill_status = 'Disputed', note = ? WHERE bill_id = ?";
+                connection.query(q, [note, billId], (err, res) => err ? reject(err) : resolve(res));
             });
 
             return { success: true };
@@ -333,10 +342,10 @@ class DbService{
             // insert revision into Bill_History
             await new Promise((resolve, reject) => {
                 const q = `
-                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, new_amount, note)
-                    VALUES (?, ?, 'Anna', ?, ?)
+                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note, new_amount, bill_status, due_date)
+                    VALUES (?, ?, 'Anna', ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY))
                 `;
-                connection.query(q, [billId, clientId, newAmount ?? null, note ?? null], (err, res) => err ? reject(err) : resolve(res));
+                connection.query(q, [billId, clientId, note ?? null, newAmount ?? null ], (err, res) => err ? reject(err) : resolve(res));
             });
 
             // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
@@ -849,38 +858,8 @@ class DbService{
             throw err;
         }
     }
-    
-    // Anna responds to a request with a quote or rejection
-    async addQuote(requestId, responderId, quotePrice, start, end, note, status) {
-        try {
-            if (status === 'rejected') {
-                // Just update the status
-                const result = await new Promise((resolve, reject) => {
-                    const query = `UPDATE Quotes 
-                                SET status = ?, note = ?
-                                WHERE request_id = ? AND responder_id = ?`;
-                    connection.query(query, [status, note, requestId, responderId], (err, res) => {
-                        if(err) reject(err); else resolve(res.affectedRows);
-                    });
-                });
-                return result;
-            } else {
-                // Insert a new quote
-                const result = await new Promise((resolve, reject) => {
-                    const query = `INSERT INTO Quotes 
-                                    (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status)
-                                    VALUES (?, ?, ?, ?, ?, ?, ?)`;
-                    connection.query(query, [requestId, responderId, quotePrice, start, end, note, status], (err, res) => {
-                        if(err) reject(err); else resolve(res.insertId);
-                    });
-                });
-                
-                return result;
-            }
-        } catch(err) { throw err; }
-    }
 
-    async upsertQuote(requestId, responderId, quotePrice, start, end, note, status = 'quoted') {
+    async upsertQuote(requestId, responderId, quotePrice, start, end, note) {
         try {
             // 1. Determine the next round for this request by Anna
             const maxRound = await new Promise((resolve, reject) => {
@@ -902,11 +881,11 @@ class DbService{
                 const query = `
                     INSERT INTO Quotes 
                     (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, round, responder_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Anna')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'Anna')
                 `;
                 connection.query(
                     query, 
-                    [requestId, responderId, quotePrice, start, end, note, status, nextRound], 
+                    [requestId, responderId, quotePrice, start, end, note, nextRound], 
                     (err, res) => {
                         if(err) reject(err); 
                         else resolve(res.insertId); // return the new quote ID
@@ -1130,27 +1109,6 @@ class DbService{
         } catch (err) {
             throw err;
         }
-    }
-
-    async disputeBill(billId, note, userId) {
-        try {
-            // 1. Update the Bill status
-            await new Promise((resolve, reject) => {
-                const q = `UPDATE Bills SET bill_status = 'Disputed' WHERE bill_id = ?;`;
-                connection.query(q, [billId], (err, res) => err ? reject(err) : resolve(res));
-            });
-
-            // 2. Insert the dispute note into Bill_History
-            await new Promise((resolve, reject) => {
-                const q = `
-                    INSERT INTO Bill_History (bill_id, responder_id, responder_type, note)
-                    VALUES (?, ?, 'Client', ?);
-                `;
-                connection.query(q, [billId, userId, note], (err, res) => err ? reject(err) : resolve(res));
-            });
-            
-            return { success: true };
-        } catch (err) { throw err; }
     }
 }
 module.exports = DbService;
