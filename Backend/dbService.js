@@ -180,23 +180,18 @@ class DbService{
         }
     }
 
-    async acceptQuote(requestId, username) {
+    async acceptQuote(requestId, status, note = null) {
         try {
-            const result = await new Promise((resolve, reject) => {
-                const query = `
-                    UPDATE Quotes q
-                    JOIN Users u ON u.user_id = (SELECT client_id FROM Request_Cleaning WHERE request_id = ?)
-                    SET q.status = 'accepted'
-                    WHERE q.request_id = ? AND q.responder_type = 'Anna'
-                `;
-                connection.query(query, [requestId, requestId], (err, res) => {
+            return await new Promise((resolve, reject) => {
+                const query = `UPDATE Quotes SET status = ?, note = COALESCE(?, note) WHERE request_id = ?`;
+                connection.query(query, [status, note, requestId], (err, result) => {
                     if (err) reject(err);
-                    else resolve(res);
+                    else resolve(result);
                 });
             });
-            
-            return result;
-        } catch (err) { throw err; }
+        } catch (err) {
+            throw err;
+        }
     }
 
     // function to allow the client to respond to a quote (accept / reject / counter)
@@ -593,11 +588,17 @@ class DbService{
         try {
              const response = await new Promise((resolve, reject) => {
                 const query = `
-                    SELECT request_id, client_id, service_address_street, service_address_city, 
-                    service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, proposed_budget, request_date, order_generated, bill_generated
-                    FROM Request_Cleaning
-                    ORDER BY request_id DESC
-                    `;
+                    SELECT 
+                        r.request_id, r.client_id, r.service_address_street, r.service_address_city, 
+                        r.service_address_state, r.service_address_zip, r.cleaning_type, r.rooms, 
+                        r.preferred_date, r.proposed_budget, r.request_date, r.order_generated, r.bill_generated,
+                        q.status AS quote_status  -- Fetches the status from the Quotes table
+                    FROM 
+                        Request_Cleaning r
+                    LEFT JOIN 
+                        Quotes q ON r.request_id = q.request_id 
+                    ORDER BY r.request_id DESC
+                `;
                 connection.query(query, (err, results) => {
                     if(err) reject(new Error(err.message));
                     else resolve(results);
