@@ -40,7 +40,17 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function renderAnnaRequestUI(requests) {
+      const sectionContainer = document.getElementById('pending-requests-section');
       const container = document.getElementById('pending-requests-list');
+
+      if (!requests || requests.length === 0) {
+        if (sectionContainer) sectionContainer.style.display = 'none';
+        container.innerHTML = ''; // Ensure the list is empty
+        return; 
+      }
+
+      if (sectionContainer) sectionContainer.style.display = 'block';
+
       container.innerHTML = '';
 
       requests.forEach(req => {
@@ -70,7 +80,17 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function renderAnnaQuoteUI(requests) {
+      const sectionContainer = document.getElementById('pending-quotes-section');
       const container = document.getElementById('pending-quotes-list');
+
+      if (!requests || requests.length === 0) {
+        if (sectionContainer) sectionContainer.style.display = 'none';
+        container.innerHTML = '';
+        return;
+      }
+
+      if (sectionContainer) sectionContainer.style.display = 'block';
+
       container.innerHTML = '';
 
       requests.forEach(req => {
@@ -428,8 +448,10 @@ document.addEventListener("DOMContentLoaded", function() {
         const queriesSection = document.querySelector("#queries-section");
         const queryResults = document.querySelector("#query-results");
         const queryBody = document.querySelector('#query-results tbody');
+        const clientQuotesSection = document.getElementById("client-quotes-section"); 
+        const clientBillsSection = document.getElementById("client-bills-section");
+        const pendingRequestsSection = document.getElementById("pending-requests-section");
         const pendingQuotesSection = document.getElementById("pending-quotes-section");
-        const billingSection = document.getElementById("billing-section");
 
         if (currentUser) {
             signupSection.style.display = "none";
@@ -441,16 +463,22 @@ document.addEventListener("DOMContentLoaded", function() {
             serviceOrdersList.style.display = "none";
             queriesSection.style.display = "none";
             queryResults.style.display = "none";
+            clientQuotesSection.style.display = "block";
+            clientBillsSection.style.display = "block";
+            pendingRequestsSection.style.display = "none";
+            pendingQuotesSection.style.display = "none";
             if (queryBody) queryBody.innerHTML = '';
-            clientLoadRequests(currentUser); // Load requests (includes quotes + nested bills)
-            loadBills(currentUser); 
+            clientLoadRequests(currentUser);
+            loadBills(currentUser);
         } else if (isAnnaUser) {
             signupSection.style.display = "none";
             loginSection.style.display = "none";
             serviceRequest.style.display = "none";
             serviceOrdersList.style.display = "block";
             queriesSection.style.display = 'block';
-            document.getElementById("client-requests").innerHTML = "";
+            clientQuotesSection.style.display = "none";
+            clientBillsSection.style.display = "none";
+            pendingRequestsSection.style.display = "block";
             pendingQuotesSection.style.display = "block";
             fetch('/pendingRequests')
             .then(res => res.json())
@@ -461,8 +489,7 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(res => res.json())
             .then(data => {
                 renderAnnaQuoteUI(data.requests);
-            });
-            billingSection.style.display = "block";        
+            });       
         } else {
             signupSection.style.display = "block";
             loginSection.style.display = "none";
@@ -476,9 +503,10 @@ document.addEventListener("DOMContentLoaded", function() {
             queriesSection.style.display = "none";
             queryResults.style.display = "none";
             if (queryBody) queryBody.innerHTML = '';
-            document.getElementById("client-requests").innerHTML = "";
+            clientQuotesSection.style.display = "none";
+            clientBillsSection.style.display = "none";
+            pendingRequestsSection.style.display = "none";
             pendingQuotesSection.style.display = "none";
-            billingSection.style.display = "none";
         }
     }
 
@@ -1062,102 +1090,163 @@ function buildBillHistoryHTML(historyEntries) {
   return html;
 }
 
-// Function to show the logged in user (client) their service request order & bill if Anna Johnson generated them
-function clientLoadRequests(username) {
-  // fetch server endpoint that returns requests (with nested bills)
-  fetch(`/clientLoadRequests/${username}`)
-    .then(res => res.json())
-    .then(data => {
-      if (!data.success) {
-        console.error(data.error);
+// Function to render the client's quotes/request history and manage visibility
+function clientRenderQuotes(requests) {
+    const container = document.getElementById('client-quotes-section'); // Assumed ID for the main quotes container
+    const listContainer = document.getElementById('client-requests'); // The inner list container
+
+    if (!requests || requests.length === 0) {
+        if (container) container.style.display = 'none';
+        listContainer.innerHTML = '';
         return;
-      }
+    }
 
-      window.clientRequests = data.requests; // keep for other uses
+    if (container) container.style.display = 'block';
 
-      let innerHTML = "";
+    let innerHTML = "";
+    
+    requests.forEach(req => {
+        // Render each request/quote item
+        innerHTML += `<div class="client-request-item" id="client-request-${req.request_id}">`;
 
-      data.requests.forEach(req => {
-        innerHTML += `<div class="client-request" id="client-request-${req.request_id}" style="
-          margin: 20px auto;
-          padding: 15px;
-          border: 2px solid #007BFF;
-          border-radius: 6px;
-          max-width: 600px;
-          text-align: center;
-          background: transparent;
-        ">`;
+        innerHTML += `<strong>Request #${req.request_id} from ${req.username || 'undefined'}</strong>`;
 
-        innerHTML += `<strong>Request #${req.request_id} from ${req.username || 'undefined'}</strong><br>`;
-        innerHTML += `<div><strong>Quote Price</strong><br>
-                      ${req.quote_price ? `$${Number(req.quote_price).toFixed(2)}` : 'No quote yet.'}<br>
-                      ${req.scheduled_start ? new Date(req.scheduled_start).toLocaleString() : '--:-- --'}<br>
-                      ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}<br>
-                      <strong>Note</strong><br>${req.quote_note || ''}</div>`;
+        // Quote/Request Details - Using the horizontal layout structure
+        innerHTML += `
+            <div class="quote-details-container">
+                <span class="detail-field"><strong>Quote Price:&nbsp;</strong> ${req.quote_price ? `$${Number(req.quote_price).toFixed(2)}` : 'No quote yet.'}</span>
+                <span class="detail-field"><strong>Start Time:&nbsp;</strong> ${req.scheduled_start ? new Date(req.scheduled_start).toLocaleString() : '--:-- --'}</span>
+                <span class="detail-field"><strong>End Time:&nbsp;</strong> ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}</span>
+                <span class="detail-field full-width"><strong>Note:&nbsp;</strong> ${req.quote_note || 'N/A'}</span>
+            </div>
+        `;
 
+        // Quote Status and Buttons (Simplified example)
         const acceptedRequests = JSON.parse(localStorage.getItem('acceptedRequests') || '[]');
 
         if (acceptedRequests.includes(req.request_id)) {
-            // Already accepted
-            innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
-                              <div style="color:green; font-weight:bold;">Accepted!</div>
-                          </div>`;
+            innerHTML += `<div class="client-quote-buttons accepted-state"><div>Accepted!</div></div>`;
         } else if (req.quote_status !== 'rejected' && req.quote_price) {
-            innerHTML += `<div class="client-quote-buttons" style="margin-top:8px;">
-                              <button onclick="acceptQuote(${req.request_id})">Accept</button> 
-                              <button onclick="renegotiateQuote(${req.quote_id}, ${req.quote_price})">Renegotiate</button>
+            innerHTML += `<div class="client-quote-buttons">
+                             <button onclick="acceptQuote(${req.request_id})">Accept</button> 
+                             <button onclick="renegotiateQuote(${req.quote_id}, ${req.quote_price})">Renegotiate</button>
                           </div>`;
         } else if (req.quote_status === 'accepted') {
-            innerHTML += `<div style="color:green; margin-top:8px;">Quote accepted ✅</div>`;
+            innerHTML += `<div class="accepted-state">Quote accepted</div>`;
         } else if (req.quote_status === 'rejected') {
-            innerHTML += `<div style="color:red; margin-top:8px;">Quote rejected by Anna</div>`;
+            innerHTML += `<div class="rejected-state">Quote rejected by Anna</div>`;
             innerHTML += `<button onclick="renegotiateQuote(${req.quote_id})">Renegotiate</button>`;
         }
 
+        // Service Order Status
         innerHTML += `<div style="margin-top:10px;">`;
         if (req.order_generated) {
-          innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
+            innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
         } else {
-          innerHTML += `<span>Service Order is Pending</span>`;
+            innerHTML += `<span>Service Order is Pending</span>`;
         }
         innerHTML += `</div>`;
+        
+        innerHTML += `</div>`; // Close client-request-item box
+    });
 
-        if (req.bills && req.bills.length > 0) {
-          innerHTML += `<div style="margin-top:12px;"><strong>Bills:</strong></div>`;
-          req.bills.forEach(bill => {
-            const color = (bill.bill_status && bill.bill_status.toLowerCase() === "paid") ? "green" : "red";
-            let due = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A';
+    listContainer.innerHTML = innerHTML;
+}
 
-            innerHTML += `
-              <div class="bill-section-${bill.bill_id}-${req.request_id}" 
-                  style="margin-top:12px; padding: 12px; border: 2px solid #007BFF; border-radius: 6px; 
-                          max-width: 500px; margin-left:auto; margin-right:auto; background: transparent;">
+// Function to render the client's bills and manage visibility
+function clientRenderBills(allBills) {
+    const container = document.getElementById('client-bills-section'); // Assumed ID for the main bills container
+    const listContainer = document.getElementById('client-bills-list'); // The inner list container
+
+    if (!allBills || allBills.length === 0) {
+        if (container) container.style.display = 'none';
+        listContainer.innerHTML = '';
+        return;
+    }
+
+    if (container) container.style.display = 'block';
+
+    let innerHTML = "";
+
+    allBills.forEach(bill => {
+        const color = (bill.bill_status && bill.bill_status.toLowerCase() === "paid") ? "green" : "red";
+        let due = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A';
+        
+        // Use a class for the bill section for cleaner CSS
+        innerHTML += `
+            <div class="client-bill-section" id="bill-section-${bill.bill_id}">
                 
-                <div style="font-weight:bold; color:${color};">
-                  Amount: $${Number(bill.bill_amount).toFixed(2)} | Status: ${bill.bill_status || 'Undefined'} | Due: ${due}
+                <div class="bill-summary-line" style="color:${color};">
+                    <span class="detail-field"><strong>Amount:&nbsp;</strong> $${Number(bill.bill_amount).toFixed(2)}</span>
+                    <span class="detail-field"><strong>Status:&nbsp;</strong> ${bill.bill_status || 'Undefined'}</span>
+                    <span class="detail-field"><strong>Due:&nbsp;</strong> ${due}</span>
                 </div>
                 
                 <div id="bill-actions-${bill.bill_id}" style="margin-top:10px;">
-                  ${
-                    bill.bill_status && bill.bill_status.toLowerCase() === "paid"
-                      ? `<div style="color:green; margin-top:6px;">Payment submitted successfully.</div>`
-                      : `
-                        <div class="bill-buttons" style="margin-top:6px;">
-                          <button onclick="openPayForm(${bill.bill_id}, ${req.request_id})">Pay</button>
-                          <button onclick="disputeBill(${bill.bill_id})">Dispute</button>
-                        <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
-                      `
-                  }
+                    ${
+                        bill.bill_status && bill.bill_status.toLowerCase() === "paid"
+                            ? `<div class="paid-state">Payment submitted successfully.</div>`
+                            : `
+                              <div class="bill-buttons">
+                                <button onclick="openPayForm(${bill.bill_id}, ${bill.request_id})">Pay</button>
+                                <button onclick="disputeBill(${bill.bill_id})">Dispute</button>
+                              </div>
+                              <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
+                              `
+                    }
                 </div>
-              </div>
-            `;
-          });
+            </div>
+        `;
+    });
+    
+    listContainer.innerHTML = innerHTML;
+}
+
+// Function for clients to load their quotes & bills
+function clientLoadRequests(username) {
+    const clientRequestsContainer = document.getElementById("client-requests");
+    const clientBillsContainer = document.getElementById("client-bills-list");
+    
+    // Clear/Hide both sections initially
+    if (clientRequestsContainer) clientRequestsContainer.innerHTML = '';
+    if (clientBillsContainer) clientBillsContainer.innerHTML = '';
+    
+    // fetch server endpoint that returns requests (with nested bills)
+    fetch(`/clientLoadRequests/${username}`)
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+            console.error(data.error);
+            // Hide the sections via the render functions called below
+            clientRenderQuotes([]);
+            clientRenderBills([]);
+            return;
         }
-        innerHTML += `</div>`; // close client-request box
+
+        window.clientRequests = data.requests; 
+
+        let allBills = [];
+        const requestsWithoutBills = data.requests.map(req => {
+            if (req.bills && req.bills.length > 0) {
+                // Add request_id to each bill for context in the bill-specific functions
+                req.bills.forEach(bill => {
+                    bill.request_id = req.request_id; 
+                    allBills.push(bill);
+                });
+            }
+            // Return the request object (without bills) for quote rendering
+            return req;
+        });
+
+        // 2. CALL THE TWO DEDICATED RENDER FUNCTIONS
+        clientRenderQuotes(requestsWithoutBills);
+        clientRenderBills(allBills);
+      })
+      .catch(err => {
+        console.error("Error fetching client requests:", err);
+        clientRenderQuotes([]);
+        clientRenderBills([]);
       });
-      document.getElementById("client-requests").innerHTML = innerHTML;
-    })
-    .catch(err => console.error(err));
 }
 
 // open a simple Pay modal/form (no real transaction) — keeps comments and is purely front-end for project

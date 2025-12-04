@@ -106,6 +106,74 @@ button:hover {
   transform: translateY(-2px);
 }
 
+/* --- Client Request and Bill Display Styles --- */
+
+/* Main wrapper for each individual request/quote/bill */
+.client-request-item {
+    margin: 20px auto;
+    padding: 15px;
+    border: 2px solid #007BFF;
+    border-radius: 6px;
+    max-width: 700px; /* Increased max-width for better horizontal flow */
+    text-align: center;
+    background: transparent;
+}
+
+/* Container for quote/request details to enable horizontal flow */
+.quote-details-container,
+.bill-summary-line {
+    display: flex;
+    flex-wrap: wrap; /* Allows fields to wrap to a new line if the screen is too narrow */
+    justify-content: center; /* Center items within the container */
+    gap: 20px; /* Space between the individual fields */
+    margin-top: 10px;
+}
+
+/* Style for each individual label-value pair */
+.detail-field {
+    /* Ensures the element takes up only the space it needs */
+    display: inline-flex;
+    align-items: center; /* Vertically center content */
+}
+
+/* Handle the Note field which should take up the full width */
+.detail-field.full-width {
+    flex-basis: 100%; /* Makes this field span the full width of the container */
+    justify-content: center;
+    margin-top: 5px;
+}
+
+/* Bill Section Styling */
+.client-bill-section {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #00bfff; /* Slightly different border for bills */
+    border-radius: 6px; 
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto; 
+    background-color: #0d0d0d; /* Subtle background for bill */
+}
+
+/* Color styles for state messages */
+.accepted-state {
+    color: green; 
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.rejected-state {
+    color: red; 
+    font-weight: bold;
+    margin-top: 8px;
+}
+
+.paid-state {
+    color: green; 
+    font-weight: bold;
+    margin-top: 6px;
+}
+
 /* Table styling */
 table {
   width: auto;

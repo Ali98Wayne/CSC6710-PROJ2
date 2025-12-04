@@ -185,24 +185,27 @@
     <br><br>
 
     <!-- Section for users that aren't Anna Johnson (clients) to view generated orders or bills if available -->
-    <div id="client-requests"></div>
+    <div id="client-quotes-section">
+        <h2>Quotes & Requests</h2>
+        <div id="client-requests"></div>
+    </div>
+    <div id="client-bills-section">
+        <h2>Bills</h2>
+        <div id="client-bills-list"></div>
+    </div>
 
-    <!-- Quote & Negotiation Section (Generated for Anna & Client) -->
-    <div id="pending-quotes-section">
+    <!-- Pending Requests & Negotiation Section (Generated for Anna & Client) -->
+    <div id="pending-requests-section">
       <h2>Pending Requests / Negotiation</h2>
       <!-- Dynamic list of pending service requests for Anna or quote negotiation for client -->
       <div id="pending-requests-list"></div>
-      <br>
+    </div>
+    <br>
+    <!-- Pending Quotes & Negotiation Section (Generated for Anna & Client) -->
+    <div id="pending-quotes-section">
       <h2>Pending Quotes / Negotiation</h2>
       <div id="pending-quotes-list"></div>
       <br>
-    </div>
-
-    <!-- Billing & Payment Section (Generated for Clients & Anna) -->
-    <div id="billing-section">
-      <h2>Bills</h2>
-      <!-- Dynamic list of bills with pay or dispute options for clients; view-only for Anna -->
-      <div id="bills-list"></div>
     </div>
 
   </main>
