@@ -336,6 +336,20 @@ app.get('/getBill/:requestId', async (request, response) => {
   }
 });
 
+// Get a service order's quote history corresponding to a specific request_id
+app.get('/getQuoteHistory/:requestId', async (req, res) => {
+    const { requestId } = req.params;
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        const result = await db.getQuoteHistory(requestId);
+        res.json({ success: true, history: result });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Get a service bill's history corresponding to a specific bill id
 app.get('/getBillHistory/:billId', async (req, res) => {
   const { billId } = req.params;

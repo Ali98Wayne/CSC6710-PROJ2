@@ -243,27 +243,25 @@ class DbService{
     // function to fetch the full quote/negotiation history
     async getQuoteHistory(requestId) {
         try {
-            const query = `
-                SELECT 
-                    qh.note_date, 
-                    qh.note, 
-                    qh.responder_type, 
-                    q.quote_status, 
-                    q.adjusted_price, 
-                    q.scheduled_time_window,
-                    q.round 
-                FROM Quote_History qh
-                INNER JOIN Quotes q ON qh.quote_id = q.quote_id
-                WHERE q.request_id = ?
-                ORDER BY qh.note_date ASC;
-            `;
-            const results = await new Promise((resolve, reject) => {
-                connection.query(query, [requestId], (err, res) => {
+            const quoteId = await new Promise((resolve, reject) => {
+                const q = "SELECT quote_id FROM Quotes WHERE request_id = ?;";
+                connection.query(q, [requestId], (err, results) => {
+                    if (err) reject(err);
+                    else if (!results || results.length === 0) reject(new Error("Quote not found"));
+                    else resolve(results[0].quote_id);
+                });
+            });
+
+            if (quoteId === null) return [];
+
+            const history = await new Promise((resolve, reject) => {
+                const query = `SELECT * FROM Quote_History WHERE quote_id = ? ORDER BY created_at DESC`;
+                connection.query(query, [quoteId], (err, res) => {
                     if (err) reject(err);
                     else resolve(res);
                 });
             });
-            return results;
+            return history;
         } catch (err) { throw err; }
     }
 
@@ -861,7 +859,6 @@ class DbService{
 
     async upsertQuote(requestId, responderId, quotePrice, start, end, note) {
         try {
-            // 1. Determine the next round for this request by Anna
             const maxRound = await new Promise((resolve, reject) => {
                 const q = `
                     SELECT MAX(round) AS max_round 
@@ -870,30 +867,39 @@ class DbService{
                 `;
                 connection.query(q, [requestId], (err, results) => {
                     if(err) reject(err);
-                    else resolve(results[0].max_round || 0); // If no previous quote, start at 0
+                    else resolve(results[0].max_round || 0);
                 });
             });
 
             const nextRound = maxRound + 1;
 
-            // 2. Insert a new quote row for this round
-            const result = await new Promise((resolve, reject) => {
+            const quoteId = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO Quotes 
                     (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, round, responder_type)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 'Anna')
+                    -- 7 parameters + 'pending' + 'Anna' = 9 values
+                    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'Anna') 
                 `;
-                connection.query(
-                    query, 
-                    [requestId, responderId, quotePrice, start, end, note, nextRound], 
+                connection.query(query, [requestId, responderId, quotePrice, start, end, note, nextRound], 
                     (err, res) => {
                         if(err) reject(err); 
-                        else resolve(res.insertId); // return the new quote ID
+                        else resolve(res.insertId); // Resolve with the new quote_id
                     }
                 );
             });
 
-            return result;
+            await new Promise((resolve, reject) => {
+                const historyQuery = `
+                    INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, round, note)
+                    VALUES (?, ?, 'Anna', ?, ?, ?, 'pending', ?, ?);
+                `;
+                connection.query(historyQuery, [quoteId, responderId, quotePrice, start, end, nextRound, note], (err, res) => {
+                    if (err) reject(err);
+                    else resolve(res);
+                });
+            });
+
+            return { success: true, quoteId: quoteId };
         } catch(err) { 
             throw err; 
         }
