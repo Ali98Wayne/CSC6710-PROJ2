@@ -143,8 +143,7 @@ button:hover {
     margin-top: 5px;
 }
 
-/* --- New Styles for Pending Requests & Quotes --- */
-/* --- Streamlined Card & Form Styles (Replacement Block) --- */
+/* --- Styles for Pending Requests & Quotes --- */
 
 /* Base Grid Layout (Keep the same) */
 #pending-requests-list,

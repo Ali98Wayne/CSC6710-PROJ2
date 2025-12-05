@@ -92,7 +92,7 @@ CREATE TABLE Quote_History (
 CREATE TABLE Bill_History (
     history_id INT AUTO_INCREMENT PRIMARY KEY,
     bill_id INT NOT NULL,
-    responder_id INT NOT NULL,
+    client_id INT NOT NULL,
     responder_type ENUM('Anna','Client') NOT NULL,
     note TEXT,
     new_amount DECIMAL(10,2),
@@ -100,7 +100,7 @@ CREATE TABLE Bill_History (
     due_date DATE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_history_bill FOREIGN KEY (bill_id) REFERENCES Bills(bill_id),
-    CONSTRAINT fk_bill_history_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)
+    CONSTRAINT fk_bill_history_responder FOREIGN KEY (client_id) REFERENCES Users(user_id)
 );
 
 -- Most service orders query

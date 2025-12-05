@@ -728,7 +728,7 @@ class DbService{
                     INNER JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q 
                         ON r.request_id = q.request_id AND q.responder_type='Anna'
-                    WHERE q.quote_id IS NULL   -- <-- Only requests that Anna hasn't quoted yet
+                    WHERE r.status = 'pending'
                     ORDER BY r.request_date ASC
                     `;
                 connection.query(query, (err, results) => {

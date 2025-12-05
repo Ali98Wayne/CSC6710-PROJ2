@@ -835,78 +835,85 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
-// Most service orders search
-const mostServiceOrdersBtn =  document.querySelector('#most-service-orders-btn');
-mostServiceOrdersBtn.onclick = function () {
-    fetch('http://localhost:5050/mostServiceOrders')
+const queryConfigs = [
+    { 
+        id: 'most-service-orders-btn', 
+        endpoint: '/mostServiceOrders', 
+        columns: ['client_id', 'username', 'first_name', 'last_name', 'total_requests'],
+        error: "Most Service Orders search error"
+    },
+    { 
+        id: 'month-quotes-search-btn', 
+        endpoint: '/monthQuotes', 
+        columns: ['request_id', 'client_id', 'username', 'quote_accept_date'],
+        error: "Month Quotes search error",
+        // Special handler to grab the month value from the input field
+        getParams: () => ({ month: document.querySelector('#monthQuotes').value })
+    },
+    { 
+        id: 'largest-job-search-btn', 
+        endpoint: '/largestJob', 
+        columns: ['request_id', 'client_id', 'username', 'rooms'],
+        error: "Largest Job search error"
+    },
+    { 
+        id: 'bad-clients-search-btn', 
+        endpoint: '/badClients', 
+        columns: ['client_id', 'username', 'first_name', 'last_name'],
+        error: "Bad Clients search error"
+    },
+    { 
+        id: 'uncommitted-clients-btn', 
+        endpoint: '/uncommittedClients', 
+        columns: ['user_id', 'first_name', 'last_name', 'email', 'request_count'],
+        error: "Uncommitted Clients search error"
+    },
+    { 
+        id: 'prospective-clients-btn', 
+        endpoint: '/prospectiveClients', 
+        columns: ['user_id', 'first_name', 'last_name', 'email'],
+        error: "Prospective Clients search error"
+    },
+    { 
+        id: 'overdue-bills-btn', 
+        endpoint: '/overdueBills', 
+        columns: ['bill_id', 'request_id', 'client_id', 'bill_amount', 'bill_status', 'due_date', 'payment_date', 'note'],
+        error: "Overdue Bills search error"
+    },
+    { 
+        id: 'good-clients-btn', 
+        endpoint: '/goodClients', 
+        columns: ['user_id', 'first_name', 'last_name', 'email'],
+        error: "Good Clients search error"
+    }
+];
+
+// --- NEW CENTRALIZED SEARCH HANDLER FUNCTION ---
+function handleSearchQuery(config) {
+    let url = `http://localhost:5050${config.endpoint}`;
+    
+    // Add parameters for dynamic searches (like month)
+    if (config.getParams) {
+        const params = config.getParams();
+        const queryString = new URLSearchParams(params).toString();
+        url += `?${queryString}`;
+    }
+
+    fetch(url)
     .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['client_id', 'username', 'first_name', 'last_name', 'total_requests']))
-    .catch(err => console.error("Most Service Orders search error:", err));
+    .then(data => searchResultsTable(data.data, config.columns))
+    .catch(err => console.error(`${config.error}:`, err));
 }
 
-// Accepted quotes in a given month search
-const monthQuotesBtn =  document.querySelector('#month-quotes-search-btn');
-monthQuotesBtn.onclick = function () {
-    const month = document.querySelector('#monthQuotes').value;
-    fetch(`http://localhost:5050/monthQuotes?month=${month}`)
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['request_id', 'client_id', 'username', 'quote_accept_date']))
-    .catch(err => console.error("Most Service Orders search error:", err));
-}
-
-// Largest job, most rooms, search
-const largestJobBtn =  document.querySelector('#largest-job-search-btn');
-largestJobBtn.onclick = function () {
-    fetch('http://localhost:5050/largestJob')
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['request_id', 'client_id', 'username', 'rooms']))
-    .catch(err => console.error("Most Service Orders search error:", err));
-}
-
-// Bad clients search
-const badClientsBtn =  document.querySelector('#bad-clients-search-btn');
-badClientsBtn.onclick = function () {
-    fetch('http://localhost:5050/badClients')
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['client_id', 'username', 'first_name', 'last_name']))
-    .catch(err => console.error("Most Service Orders search error:", err));
-}
-
-// Uncommitted Clients search
-const uncommittedClientsBtn = document.querySelector('#uncommitted-clients-btn');
-uncommittedClientsBtn.onclick = function () {
-    fetch('http://localhost:5050/uncommittedClients')
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['user_id', 'first_name', 'last_name', 'email', 'request_count']))
-    .catch(err => console.error("Uncommitted Clients search error:", err));
-}
-
-// Prospective Clients search
-const prospectiveClientsBtn = document.querySelector('#prospective-clients-btn');
-prospectiveClientsBtn.onclick = function () {
-    fetch('http://localhost:5050/prospectiveClients')
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['user_id', 'first_name', 'last_name', 'email']))
-    .catch(err => console.error("Prospective Clients search error:", err));
-}
-
-// Overdue Bills search
-const overdueBillsBtn = document.querySelector('#overdue-bills-btn');
-overdueBillsBtn.onclick = function () {
-    fetch('http://localhost:5050/overdueBills')
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['bill_id', 'request_id', 'client_id', 'bill_amount', 'bill_status', 'due_date', 'payment_date', 'note']))
-    .catch(err => console.error("Overdue Bills search error:", err));
-}
-
-// Good Clients search
-const goodClientsBtn = document.querySelector('#good-clients-btn');
-goodClientsBtn.onclick = function () {
-    fetch('http://localhost:5050/goodClients')
-    .then(response => response.json())
-    .then(data => searchResultsTable(data['data'], ['user_id', 'first_name', 'last_name', 'email']))
-    .catch(err => console.error("Good Clients search error:", err));
-}
+// --- APPLY EVENT LISTENERS IN A LOOP ---
+// This runs once when the DOM content is loaded
+queryConfigs.forEach(config => {
+    const button = document.querySelector(`#${config.id}`);
+    if (button) {
+        // Use an arrow function to pass the config object to the generic handler
+        button.addEventListener('click', () => handleSearchQuery(config));
+    }
+});
 
 // Function for showing query results in a table that differs in what columns are shown
 function searchResultsTable(query_data, columnsToShow = []) {
@@ -923,7 +930,13 @@ function searchResultsTable(query_data, columnsToShow = []) {
 
     // If the query does not have a result, indicate this through HTML text
     if (!query_data || query_data.length === 0) {
-        queryTableBody.innerHTML = "<h2>No results for the query</h2>";
+        queryTableBody.innerHTML = `
+            <tr>
+                <td colspan="${columnsToShow.length}">
+                    <h2>No results for the query</h2>
+                </td>
+            </tr>
+        `;
         return;
     }
 
