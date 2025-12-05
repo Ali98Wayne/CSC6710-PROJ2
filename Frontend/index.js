@@ -121,6 +121,90 @@ document.addEventListener("DOMContentLoaded", function() {
       });
     }
 
+    function renderAnnaBillUI(requests) {
+        const sectionContainer = document.getElementById('bills-section');
+        const container = document.getElementById('bills-list'); 
+
+        if (!requests || requests.length === 0) {
+            if (sectionContainer) sectionContainer.style.display = 'none';
+            if (container) container.innerHTML = '';
+            return;
+        }
+
+        if (sectionContainer) sectionContainer.style.display = 'block';
+        container.innerHTML = ''; 
+
+        requests.forEach(bill => {
+            const date = new Date(bill.due_date).toLocaleDateString();
+            const amount = Number(bill.bill_amount).toFixed(2);
+            const status = bill.bill_status.toLowerCase();
+            
+            let statusClass = 'status-tag-default';
+            let buttonText = 'Revise Bill';
+            
+            if (status === 'disputed') {
+                statusClass = 'status-tag-disputed'; 
+                buttonText = 'Resolve Dispute';
+            } else if (status === 'unpaid') {
+                statusClass = 'status-tag-unpaid'; 
+            } else if (status === 'paid') {
+                statusClass = 'status-tag-paid'; 
+            }
+
+            const showReviseButton = status !== 'paid';
+
+            const billCard = document.createElement('div');
+            billCard.className = 'ui-card dark-card bill-item-card'; 
+
+            billCard.innerHTML = `
+                <div class="card-header">
+                    <div class="meta-info">
+                        <span class="bill-label">Bill #${bill.bill_id}</span>
+                        <span class="request-label">Request #${bill.request_id}</span>
+                    </div>
+                    <span class="status-tag ${statusClass}">${bill.bill_status}</span>
+                </div>
+                
+                <div class="card-body">
+                    <div class="client-info">
+                        <strong>Client:</strong> ${bill.first_name} ${bill.last_name}
+                    </div>
+                    <div class="financial-details">
+                        <div class="detail-row">
+                            <span>Amount Due:</span>
+                            <strong class="amount-due">$${amount}</strong>
+                        </div>
+                        <div class="detail-row">
+                            <span>Due Date:</span>
+                            <span class="due-date">${date}</span>
+                        </div>
+                    </div>
+                    ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
+                </div>
+
+                <div class="card-actions action-group"> 
+                    <button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}">View Bill</button>
+                    
+                    ${showReviseButton ? `
+                        <button class="action-btn primary-btn revise-action-btn" data-bill-id="${bill.bill_id}">
+                            ${buttonText}
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+
+            billCard.querySelector('.view-bill-btn')
+            .addEventListener('click', () => viewServiceBill(bill.request_id));
+
+            if (showReviseButton) {
+                billCard.querySelector('.revise-action-btn')
+                .addEventListener('click', () => initiateBillRevision(bill.request_id));
+            }
+
+            container.appendChild(billCard);
+        });
+    }
+
     function submitQuote(requestId) {
         const price = document.getElementById(`quote-price-${requestId}`).value;
         const start = document.getElementById(`quote-start-${requestId}`).value;
@@ -452,6 +536,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const clientBillsSection = document.getElementById("client-bills-section");
         const pendingRequestsSection = document.getElementById("pending-requests-section");
         const pendingQuotesSection = document.getElementById("pending-quotes-section");
+        const billsSection = document.getElementById("bills-section");
 
         if (currentUser) {
             signupSection.style.display = "none";
@@ -467,6 +552,7 @@ document.addEventListener("DOMContentLoaded", function() {
             clientBillsSection.style.display = "block";
             pendingRequestsSection.style.display = "none";
             pendingQuotesSection.style.display = "none";
+            billsSection.style.display = "none";
             if (queryBody) queryBody.innerHTML = '';
             clientLoadRequests(currentUser);
             loadBills(currentUser);
@@ -480,6 +566,7 @@ document.addEventListener("DOMContentLoaded", function() {
             clientBillsSection.style.display = "none";
             pendingRequestsSection.style.display = "block";
             pendingQuotesSection.style.display = "block";
+            billsSection.style.display = "block";
             fetch('/pendingRequests')
             .then(res => res.json())
             .then(data => {
@@ -489,7 +576,12 @@ document.addEventListener("DOMContentLoaded", function() {
             .then(res => res.json())
             .then(data => {
                 renderAnnaQuoteUI(data.requests);
-            });       
+            });      
+            fetch('/getBills')
+            .then(res => res.json())
+            .then(data => {
+                renderAnnaBillUI(data.requests);
+            });        
         } else {
             signupSection.style.display = "block";
             loginSection.style.display = "none";
@@ -507,6 +599,7 @@ document.addEventListener("DOMContentLoaded", function() {
             clientBillsSection.style.display = "none";
             pendingRequestsSection.style.display = "none";
             pendingQuotesSection.style.display = "none";
+            billsSection.style.display = "none";
         }
     }
 

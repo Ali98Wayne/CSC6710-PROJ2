@@ -345,10 +345,10 @@ class DbService{
             await new Promise((resolve, reject) => {
                 const q = `
                     UPDATE Bills
-                    SET bill_amount = ?, bill_status = 'Unpaid', due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+                    SET bill_amount = ?, note = ?, bill_status = 'Unpaid', due_date = DATE_ADD(CURDATE(), INTERVAL 7 DAY)
                     WHERE bill_id = ?
                 `;
-                connection.query(q, [newAmount, billId], (err, res) => err ? reject(err) : resolve(res));
+                connection.query(q, [newAmount, note, billId], (err, res) => err ? reject(err) : resolve(res));
             });
 
             return { success: true };
@@ -794,6 +794,29 @@ class DbService{
                     else resolve(results);
                 });
             });
+
+            return response;
+        } catch (err) {
+            throw err;
+        }
+    }
+
+    async getBillsForAnna() {
+    try {
+        const response = await new Promise((resolve, reject) => {
+            const query = `
+                SELECT b.bill_id, b.request_id, b.client_id, b.bill_amount, b.bill_status, b.due_date, b.note,
+                    u.first_name, u.last_name, u.username
+                FROM Bills b
+                JOIN Users u ON b.client_id = u.user_id
+                ORDER BY 
+                    b.due_date ASC;
+                `;
+            connection.query(query, (err, results) => {
+                if (err) reject(err);
+                else resolve(results);
+            });
+        });
 
             return response;
         } catch (err) {

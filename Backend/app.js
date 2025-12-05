@@ -442,6 +442,18 @@ app.get('/pendingQuotes', async (req, res) => {
     }
 });
 
+// Fetch all bills for Anna
+app.get('/getBills', async (req, res) => {
+    const db = dbService.getDbServiceInstance();
+    try {
+        const requests = await db.getBillsForAnna();
+        res.json({ requests }); 
+    } catch (err) {
+        console.error('Error fetching bills:', err);
+        res.status(500).json({ success: false, error: err.message }); 
+    }
+});
+
 app.post('/client/pay-bill', async (req, res) => {
     const { billId } = req.body;
     if (!billId) return res.json({ success: false, error: 'Missing info' });
