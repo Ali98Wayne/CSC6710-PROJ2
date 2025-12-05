@@ -143,6 +143,81 @@ button:hover {
     margin-top: 5px;
 }
 
+/* --- New Styles for Pending Requests & Quotes --- */
+/* --- Streamlined Card & Form Styles (Replacement Block) --- */
+
+/* Base Grid Layout (Keep the same) */
+#pending-requests-list,
+#pending-quotes-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+/* Card Height (Removed min-height for dynamic fit) */
+.request-item-card,
+.quote-item-card {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Form Body: Simple Stacked Layout */
+.request-form-body,
+.quote-form-body {
+    flex-grow: 1;
+    padding: 15px;
+    display: flex;
+    flex-direction: column; /* Force items to stack vertically */
+    gap: 15px; /* Spacing between input groups */
+}
+
+/* Grouping for label and input */
+.input-group {
+    /* 🛠️ KEY FIX: Set all input groups to 100% width to force stacking */
+    width: 100%; 
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* Override general input styling for the card context */
+.request-form-body input,
+.quote-form-body input,
+.request-form-body input[type="text"],
+.request-form-body input[type="number"],
+.request-form-body input[type="datetime-local"], 
+.quote-form-body input[type="datetime-local"] {
+    /* 🛠️ Critical Overrides to suppress global styles */
+    max-width: 100% !important; 
+    margin: 5px 0 0 0 !important; 
+    display: block !important;
+    width: 100% !important;
+
+    /* Styling for consistency and fixing cut-off date */
+    padding: 10px; 
+    text-align: left; 
+    box-sizing: border-box; 
+    font-size: 1em;
+}
+
+/* Override general label styling for the card context */
+.request-form-body label,
+.quote-form-body label {
+    margin: 0;
+    width: 100%;
+    font-size: 0.9em;
+    color: #aaaaaa;
+    text-align: left; 
+}
+
+/* Card Header/Footer Consistency (Keep the same) */
+.request-item-card .card-actions,
+.quote-item-card .card-actions {
+    flex-shrink: 0; 
+}
+
 /* Bill Section Styling */
 .client-bill-section {
     margin-top: 12px;

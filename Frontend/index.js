@@ -39,6 +39,36 @@ document.addEventListener("DOMContentLoaded", function() {
       document.querySelector("#signup-creditcard-month").value = "January";
     }
 
+    function formatDateTimeLocal(sqlDateTimeString) {
+        if (!sqlDateTimeString) return '';
+        // Replaces space with 'T' and truncates seconds/milliseconds
+        return sqlDateTimeString.replace(' ', 'T').substring(0, 16);
+    }
+
+
+    function findAndRemoveCard(listId, cardType, idValue) {
+        const list = document.getElementById(listId);
+        if (!list) return false;
+
+        // Robustly find the card element by iterating and checking the label content
+        const cardElement = Array.from(list.children).find(card => {
+            const label = card.querySelector('.request-label');
+            return label && label.textContent.includes(`${cardType} #${idValue}`);
+        });
+
+        if (cardElement) {
+            cardElement.remove();
+            // Check if the section is now empty and hide it
+            const sectionContainerId = listId.replace('-list', '-section');
+            const sectionContainer = document.getElementById(sectionContainerId);
+            if (list.children.length === 0 && sectionContainer) {
+                sectionContainer.style.display = 'none';
+            }
+            return true;
+        }
+        return false;
+    }
+
     function renderAnnaRequestUI(requests) {
       const sectionContainer = document.getElementById('pending-requests-section');
       const container = document.getElementById('pending-requests-list');
@@ -56,19 +86,44 @@ document.addEventListener("DOMContentLoaded", function() {
       requests.forEach(req => {
           if (req.status === 'rejected') return; // Don't show rejected service requests
 
-          const div = document.createElement('div');
-          div.classList.add('pending-request');
+  const div = document.createElement('div');
+        div.className = 'ui-card dark-card request-item-card';
 
-          // Build innerHTML WITHOUT inline onclick
-          div.innerHTML = `
-              <p>Request #${req.request_id} from ${req.username}</p>
-              <input type="number" placeholder="Quote Price" id="quote-price-${req.request_id}">
-              <input type="datetime-local" id="quote-start-${req.request_id}">
-              <input type="datetime-local" id="quote-end-${req.request_id}">
-              <input type="text" placeholder="Note" id="quote-note-${req.request_id}">
-              <button class="submit-quote-btn">Submit Quote</button>
-              <button class="reject-request-btn">Reject</button>
-          `;
+        div.innerHTML = `
+            <div class="card-header">
+                <div class="meta-info">
+                    <span class="request-label">Request #${req.request_id} from ${req.username}</span>
+                </div>
+                <span class="status-tag status-tag-default">Pending Quote</span>
+            </div>
+            
+            <div class="card-body request-form-body">              
+                <div class="input-group">
+                    <label for="quote-price-${req.request_id}">Price ($):</label>
+                    <input type="number" placeholder="0.00" id="quote-price-${req.request_id}">
+                </div>
+
+                <div class="input-group">
+                    <label for="quote-start-${req.request_id}">Start:</label>
+                    <input type="datetime-local" id="quote-start-${req.request_id}">
+                </div>
+
+                <div class="input-group">
+                    <label for="quote-end-${req.request_id}">End:</label>
+                    <input type="datetime-local" id="quote-end-${req.request_id}">
+                </div>
+                
+                <div class="input-group full-width-input">
+                    <label for="quote-note-${req.request_id}">Note:</label>
+                    <input type="text" placeholder="Optional note for client" id="quote-note-${req.request_id}">
+                </div>
+            </div>
+
+            <div class="card-actions action-group">
+                <button class="action-btn secondary-btn reject-request-btn">Reject</button>
+                <button class="action-btn primary-btn submit-quote-btn">Submit Quote</button>
+            </div>
+        `;
 
           // Attach listeners dynamically
           div.querySelector('.submit-quote-btn')
@@ -82,45 +137,76 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     function renderAnnaQuoteUI(requests) {
-      const sectionContainer = document.getElementById('pending-quotes-section');
-      const container = document.getElementById('pending-quotes-list');
+        const sectionContainer = document.getElementById('pending-quotes-section');
+        const container = document.getElementById('pending-quotes-list');
 
-      if (!requests || requests.length === 0) {
-        if (sectionContainer) sectionContainer.style.display = 'none';
+        if (!requests || requests.length === 0) {
+            if (sectionContainer) sectionContainer.style.display = 'none';
+            container.innerHTML = '';
+            return;
+        }
+
+        if (sectionContainer) sectionContainer.style.display = 'block';
+
         container.innerHTML = '';
-        return;
-      }
 
-      if (sectionContainer) sectionContainer.style.display = 'block';
+        requests.forEach(req => {
+            const div = document.createElement('div');
+            div.className = 'ui-card dark-card quote-item-card';
 
-      container.innerHTML = '';
+            const formattedStart = formatDateTimeLocal(req.scheduled_start);
+            const formattedEnd = formatDateTimeLocal(req.scheduled_end);
 
-      requests.forEach(req => {
-          const div = document.createElement('div');
-          div.classList.add('pending-quote');
+            div.innerHTML = `
+                <div class="card-header">
+                    <div class="meta-info">
+                        <span class="request-label">Quote #${req.quote_id} from ${req.username}</span>
+                    </div>
+                    <span class="status-tag status-tag-unpaid">Countered</span>
+                </div>
+                
+                <div class="card-body quote-form-body">
+                    <p class="card-title">Resubmit or Modify Quote</p>
+                    
+                    <div class="input-group">
+                        <label for="quote-price-${req.quote_id}">Price ($):</label>
+                        <input type="number" value="${req.quote_price}" id="quote-price-${req.quote_id}">
+                    </div>
 
-          div.innerHTML = `
-              <p>Quote #${req.quote_id} from ${req.username}</p>
-              <input type="number" placeholder="Quote Price" id="quote-price-${req.quote_id}">
-              <input type="datetime-local" id="quote-start-${req.quote_id}">
-              <input type="datetime-local" id="quote-end-${req.quote_id}">
-              <input type="text" placeholder="Note" id="quote-note-${req.quote_id}">
-              <button class="resubmit-quote-btn">Resubmit Quote</button>
-              <button class="reject-quote-btn">Reject</button>
-              <button class="cancel-quote-btn">Cancel</button>
-          `;
+                    <div class="input-group">
+                        <label for="quote-start-${req.quote_id}">Start:</label>
+                        <input type="datetime-local" value="${formattedStart}" id="quote-start-${req.quote_id}">
+                    </div>
 
-          div.querySelector('.resubmit-quote-btn')
-            .addEventListener('click', () => resubmitQuote(req.quote_id));
+                    <div class="input-group">
+                        <label for="quote-end-${req.quote_id}">End:</label>
+                        <input type="datetime-local" value="${formattedEnd}" id="quote-end-${req.quote_id}">
+                    </div>
+                    
+                    <div class="input-group full-width-input">
+                        <label for="quote-note-${req.quote_id}">Note:</label>
+                        <input type="text" value="${req.note || ''}" id="quote-note-${req.quote_id}">
+                    </div>
+                </div>
 
-          div.querySelector('.reject-quote-btn')
-            .addEventListener('click', () => rejectQuote(req.quote_id));
+                <div class="card-actions action-group">
+                    <button class="action-btn secondary-btn cancel-quote-btn">Cancel</button>
+                    <button class="action-btn secondary-btn reject-quote-btn">Reject</button>
+                    <button class="action-btn primary-btn resubmit-quote-btn">Resubmit Quote</button>
+                </div>
+            `;
 
-          div.querySelector('.cancel-quote-btn')
-            .addEventListener('click', () => cancelQuote(req.quote_id));
+            div.querySelector('.resubmit-quote-btn')
+                .addEventListener('click', () => resubmitQuote(req.quote_id));
 
-          container.appendChild(div);
-      });
+            div.querySelector('.reject-quote-btn')
+                .addEventListener('click', () => rejectQuote(req.quote_id));
+
+            div.querySelector('.cancel-quote-btn')
+                .addEventListener('click', () => cancelQuote(req.quote_id));
+
+            container.appendChild(div);
+        });
     }
 
     function renderAnnaBillUI(requests) {
@@ -223,8 +309,7 @@ document.addEventListener("DOMContentLoaded", function() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                requestId, 
-                responderId: 1, 
+                requestId,
                 quotePrice: price, 
                 scheduledStart: start, 
                 scheduledEnd: end, 
@@ -235,14 +320,13 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(data => {
             if (data.success) {
                 alert("Successfully submitted quote");
-                const reqDiv = document.getElementById(`quote-price-${requestId}`).closest('.pending-request');
-                if (reqDiv) reqDiv.remove();
+                findAndRemoveCard('pending-requests-list', 'Request', requestId);
             } else {
                 alert("Error submitting quote: " + (data.error || "Unknown error"));
             }
         })
         .catch(err => console.error("Error submitting quote:", err));
-    }
+}
 
     function resubmitQuote(quoteId) {
         const newPrice = document.getElementById(`quote-price-${quoteId}`).value;
@@ -270,8 +354,7 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(data => {
             if (data.success) {
                 alert('Quote successfully resubmitted. Status reset to pending for client.');
-                const reqDiv = document.getElementById(`quote-price-${quoteId}`).closest('.pending-quote');
-                if (reqDiv) reqDiv.remove();
+                findAndRemoveCard('pending-quotes-list', 'Quote', quoteId);
             } else {
                 alert("Error resubmitting quote: " + (data.error || "Unknown error"));
             }
@@ -299,10 +382,7 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(data => {
             if (data.success) {
               alert('Request successfully rejected.');
-                const reqDiv = document
-                    .getElementById(`quote-note-${requestId}`)
-                    .closest('.pending-request');
-                if (reqDiv) reqDiv.remove();
+              findAndRemoveCard('pending-requests-list', 'Request', requestId);
             } else {
                 alert("Error rejecting request: " + (data.error || "Unknown error"));
             }
@@ -330,10 +410,7 @@ document.addEventListener("DOMContentLoaded", function() {
         .then(data => {
             if (data.success) {
               alert('Quote successfully rejected.');
-                const reqDiv = document
-                    .getElementById(`quote-price-${quoteId}`)
-                    .closest('.pending-quote');
-                if (reqDiv) reqDiv.remove();
+              findAndRemoveCard('pending-quotes-list', 'Quote', quoteId);
             } else {
                 alert("Error rejecting quote: " + (data.error || "Unknown error"));
             }
@@ -361,9 +438,7 @@ document.addEventListener("DOMContentLoaded", function() {
       .then(data => {
           if (data.success) {
               alert('Quote successfully cancelled.');
-              // Remove the item from Anna's list after submission (if successful)
-              const reqDiv = document.getElementById(`quote-price-${quoteId}`).closest('.pending-quote');
-              if (reqDiv) reqDiv.remove();
+              findAndRemoveCard('pending-quotes-list', 'Quote', quoteId);
           } else {
               alert("Error cancelling quote: " + (data.error || "Unknown error"));
           }

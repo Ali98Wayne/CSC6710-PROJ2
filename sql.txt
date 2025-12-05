@@ -46,7 +46,7 @@ CREATE TABLE Request_Cleaning(
 CREATE TABLE Quotes (
     quote_id INT AUTO_INCREMENT PRIMARY KEY,
     request_id INT NOT NULL,
-    responder_id INT NOT NULL,
+    client_id INT NOT NULL,
     responder_type ENUM('Anna','Client') NOT NULL DEFAULT 'Anna',
     quote_price DECIMAL(10,2) NULL,
     scheduled_start DATETIME NULL,
@@ -56,7 +56,7 @@ CREATE TABLE Quotes (
     status ENUM('pending','accepted','rejected','countered','canceled') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
-    CONSTRAINT fk_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)
+    CONSTRAINT fk_responder FOREIGN KEY (client_id) REFERENCES Users(user_id)
 );
 
 CREATE TABLE Bills (

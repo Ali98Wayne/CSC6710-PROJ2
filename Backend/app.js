@@ -63,10 +63,10 @@ app.post("/addServiceRequest", async (request, response) => {
 
 // Anna responds to a request with a quote or rejection
 app.post('/addQuote', async (req, res) => {
-    const { requestId, responderId, quotePrice, scheduledStart, scheduledEnd, note, status } = req.body;
+    const { requestId, quotePrice, scheduledStart, scheduledEnd, note, status } = req.body;
     const db = dbService.getDbServiceInstance();
     try {
-        const result = await db.upsertQuote(requestId, responderId, quotePrice, scheduledStart, scheduledEnd, note, status);
+        const result = await db.upsertQuote(requestId, quotePrice, scheduledStart, scheduledEnd, note, status);
         res.json({ success: true, result });
     } catch(err) { 
         res.json({ success: false, error: err.message }); 
@@ -160,10 +160,10 @@ app.post('/client/accept-quote', async (req, res) => {
 
 // Client submits a counter-note for negotiation
 app.post('/counterQuote', async (req, res) => {
-  const { requestId, responderId, note } = req.body;
+  const { requestId, clientId, note } = req.body;
   const db = dbService.getDbServiceInstance();
   try {
-    const result = await db.counterQuote(requestId, responderId, note);
+    const result = await db.counterQuote(requestId, clientId, note);
     res.json({ success: true, result });
   } catch(err) { res.json({ success: false, error: err.message }); }
 });
