@@ -759,7 +759,7 @@ class DbService{
                 const query = `
                     SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
                         r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-                        r.notes, u.username
+                        r.notes, r.status, u.username
                     FROM Request_Cleaning r
                     INNER JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q 
@@ -853,11 +853,6 @@ class DbService{
                     JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q ON q.request_id = r.request_id
                     AND q.responder_type = 'Anna'
-                    AND q.round = (
-                        SELECT MAX(round)
-                        FROM Quotes
-                        WHERE request_id = r.request_id AND responder_type = 'Anna'
-                    )
                     WHERE u.username = ?
                     ORDER BY r.request_date ASC
                 `;
@@ -888,28 +883,13 @@ class DbService{
 
     async upsertQuote(requestId, responderId, quotePrice, start, end, note) {
         try {
-            const maxRound = await new Promise((resolve, reject) => {
-                const q = `
-                    SELECT MAX(round) AS max_round 
-                    FROM Quotes 
-                    WHERE request_id = ? AND responder_type = 'Anna'
-                `;
-                connection.query(q, [requestId], (err, results) => {
-                    if(err) reject(err);
-                    else resolve(results[0].max_round || 0);
-                });
-            });
-
-            const nextRound = maxRound + 1;
-
             const quoteId = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO Quotes 
-                    (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, round, responder_type)
-                    -- 7 parameters + 'pending' + 'Anna' = 9 values
-                    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, 'Anna') 
+                    (request_id, responder_id, quote_price, scheduled_start, scheduled_end, note, status, responder_type)
+                    VALUES (?, ?, ?, ?, ?, ?, 'pending', 'Anna') 
                 `;
-                connection.query(query, [requestId, responderId, quotePrice, start, end, note, nextRound], 
+                connection.query(query, [requestId, responderId, quotePrice, start, end, note], 
                     (err, res) => {
                         if(err) reject(err); 
                         else resolve(res.insertId); // Resolve with the new quote_id
@@ -919,10 +899,10 @@ class DbService{
 
             await new Promise((resolve, reject) => {
                 const historyQuery = `
-                    INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, round, note)
-                    VALUES (?, ?, 'Anna', ?, ?, ?, 'pending', ?, ?);
+                    INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
+                    VALUES (?, ?, 'Anna', ?, ?, ?, 'pending', ?);
                 `;
-                connection.query(historyQuery, [quoteId, responderId, quotePrice, start, end, nextRound, note], (err, res) => {
+                connection.query(historyQuery, [quoteId, responderId, quotePrice, start, end, note], (err, res) => {
                     if (err) reject(err);
                     else resolve(res);
                 });
@@ -938,9 +918,11 @@ class DbService{
     async counterQuote(requestId, responderId, note) {
         try {
             const result = await new Promise((resolve, reject) => {
-                const query = `INSERT INTO Quotes 
-                                (request_id, responder_id, note, status, round)
-                                VALUES (?, ?, ?, 'countered', COALESCE((SELECT MAX(round) FROM Quotes WHERE request_id = ?), 0) + 1)`;
+                const query = `
+                    INSERT INTO Quotes 
+                    (request_id, responder_id, note, status)
+                    VALUES (?, ?, ?, 'countered'
+                `;
                 connection.query(query, [requestId, responderId, note, requestId], (err, res) => {
                     if(err) reject(err); else resolve(res.insertId);
                 });
@@ -951,15 +933,6 @@ class DbService{
     }
 
     async resubmitQuote(quoteId, newPrice, newStart, newEnd, note) {
-        const quoteRound = await new Promise((resolve, reject) => {
-            const QuoteRoundQuery = "SELECT round FROM Quotes WHERE quote_id = ?";
-            connection.query(QuoteRoundQuery, [quoteId], (err, results) => {
-                if (err) reject(err);
-                else if (results.length === 0) reject(new Error("Quote not found"));
-                else resolve(results[0].round);
-            });
-        });
-
         await new Promise((resolve, reject) => {
             const updateQuery = `
                 UPDATE Quotes 
@@ -969,11 +942,10 @@ class DbService{
                     scheduled_end = ?,
                     note = ?,               
                     status = 'pending',
-                    round = ?,
                     response_date = CURRENT_TIMESTAMP()
                 WHERE quote_id = ?;
             `;
-            connection.query(updateQuery, [newPrice, newStart, newEnd, note, quoteRound + 1, quoteId], (err, res) => {
+            connection.query(updateQuery, [newPrice, newStart, newEnd, note, quoteId], (err, res) => {
                 if (err) reject(err);
                 else resolve(res);
             });
@@ -990,11 +962,11 @@ class DbService{
         
         await new Promise((resolve, reject) => {
             const historyQuery = `
-                INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, round, note)
+                INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
                 VALUES (?, ?, 'Anna', ?, ?, ?, ?, ?, ?);
             `;
             connection.query(historyQuery, [quoteId, updatedQuoteData.responder_id, updatedQuoteData.responder_type, updatedQuoteData.quote_price, 
-                updatedQuoteData.scheduled_start, updatedQuoteData.scheduled_end, updatedQuoteData.status, updatedQuoteData.round, updatedQuoteData.note], (err, res) => {
+                updatedQuoteData.scheduled_start, updatedQuoteData.scheduled_end, updatedQuoteData.status, updatedQuoteData.note], (err, res) => {
                 if (err) reject(err);
                 else resolve(res);
             });
@@ -1003,8 +975,40 @@ class DbService{
         return { success: true };
     }
 
+    async rejectRequest(requestId, note) {
+        try {
+            await new Promise((resolve, reject) => {
+                const updateQuery = `
+                    UPDATE Request_Cleaning 
+                    SET status = 'rejected', anna_note = ?
+                    WHERE request_id = ?;
+                `;
+                connection.query(updateQuery, [note, requestId], (err, res) => {
+                    if (err) reject(err);
+                    else resolve(res);
+                });
+            });
+
+            return { success: true };
+        } catch (err) {
+            throw err;
+        }
+    }
+
     async rejectQuote(quoteId, note) {
         try {
+            await new Promise((resolve, reject) => {
+                const updateQuery = `
+                    UPDATE Quotes 
+                    SET responder_type = 'Anna', status = 'rejected', response_date = CURRENT_TIMESTAMP()
+                    WHERE quote_id = ?;
+                `;
+                connection.query(updateQuery, [quoteId], (err, res) => {
+                    if (err) reject(err);
+                    else resolve(res);
+                });
+            });
+
             const quoteData = await new Promise((resolve, reject) => {
                 const getQuoteDataQuery = "SELECT * FROM Quotes WHERE quote_id = ?";
                 connection.query(getQuoteDataQuery, [quoteId], (err, results) => {
@@ -1016,23 +1020,14 @@ class DbService{
 
             await new Promise((resolve, reject) => {
                 const historyQuery = `
-                    INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, round, note)
-                    VALUES (?, ?, ?, 'Anna', ?, ?, ?, ?, ?);
+                    INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
+                    VALUES (?, ?, 'Anna', ?, ?, ?, ?, ?);
                 `;
-                connection.query(historyQuery, [quoteId, quoteData.responder_id, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, quoteData.status, quoteData.round, note], (err, res) => {
-                    if (err) reject(err);
-                    else resolve(res);
-                });
-            });
-
-            await new Promise((resolve, reject) => {
-                const updateQuery = `
-                    UPDATE Quotes 
-                    SET responder_type = 'Anna', status = 'rejected', response_date = CURRENT_TIMESTAMP()
-                    WHERE quote_id = ?;
-                `;
-                connection.query(updateQuery, [quoteId], (err, res) => {
-                    if (err) reject(err);
+                connection.query(historyQuery, [quoteId, quoteData.responder_id, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, quoteData.status, note], (err, res) => {
+                    if (err) { 
+                        console.log(historyQuery);
+                        reject(err);
+                    }
                     else resolve(res);
                 });
             });
@@ -1059,7 +1054,7 @@ class DbService{
                     INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
                     VALUES (?, ?, 'Anna', ?, ?, ?, ?, ?);
                 `;
-                connection.query(historyQuery, [quoteId, quoteData.responder_id, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, quoteData.status, quoteData.round, note], (err, res) => {
+                connection.query(historyQuery, [quoteId, quoteData.responder_id, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, quoteData.status, note], (err, res) => {
                     if (err) reject(err);
                     else resolve(res);
                 });
@@ -1114,13 +1109,12 @@ class DbService{
 
             await new Promise((resolve, reject) => {
                 const historyQuery = `
-                    INSERT INTO Quote_History (quote_id, client_id, responder_type, note, quote_price, scheduled_start, scheduled_end, round, status)
-                    VALUES (?, ?, 'Client', ?, ?, ?, ?, ?, 'countered');
+                    INSERT INTO Quote_History (quote_id, client_id, responder_type, note, quote_price, scheduled_start, scheduled_end, status)
+                    VALUES (?, ?, 'Client', ?, ?, ?, ?, 'countered');
                 `;
                 
-                connection.query(historyQuery, [
-                    quoteId, quoteData.responder_id, oldNote, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, quoteData.round + 1
-                ], (err, res) => {
+                connection.query(historyQuery, [quoteId, quoteData.responder_id, oldNote, quoteData.quote_price, quoteData.scheduled_start, 
+                    quoteData.scheduled_end], (err, res) => {
                     if (err) reject(err);
                     else resolve(res);
                 });

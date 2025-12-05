@@ -91,6 +91,24 @@ app.post('/renegotiateQuote', async (req, res) => {
     }
 });
 
+app.post('/rejectRequest', async (req, res) => {
+    const { requestId, note } = req.body;
+
+    if (!requestId || !note) {
+        return res.json({ success: false, error: "Missing required fields: requestId and note." });
+    }
+
+    const db = dbService.getDbServiceInstance();
+
+    try {
+        await db.rejectRequest(requestId, note);
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err);
+        res.json({ success: false, error: err.message });
+    }
+});
+
 app.post('/rejectQuote', async (req, res) => {
     const { quoteId, note } = req.body;
 

@@ -38,6 +38,8 @@ CREATE TABLE Request_Cleaning(
    quote_accept_date DATE,
    order_generated TINYINT(1) DEFAULT 0,
    bill_generated TINYINT(1) DEFAULT 0,
+   status ENUM('pending','quoted','rejected') DEFAULT 'pending',
+   anna_note TEXT,
    FOREIGN KEY (client_id) REFERENCES Users(user_id)
 );
 
@@ -52,7 +54,6 @@ CREATE TABLE Quotes (
     note TEXT,
     response_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status ENUM('pending','accepted','rejected','countered','canceled') DEFAULT 'pending',
-    round INT DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_responder FOREIGN KEY (responder_id) REFERENCES Users(user_id)
@@ -82,7 +83,6 @@ CREATE TABLE Quote_History (
     scheduled_start DATETIME NULL,
     scheduled_end DATETIME NULL,
     status ENUM('pending','accepted','rejected','countered','canceled'),
-    round INT NOT NULL,
     note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_quote_id FOREIGN KEY (quote_id) REFERENCES Quotes(quote_id),

@@ -54,6 +54,8 @@ document.addEventListener("DOMContentLoaded", function() {
       container.innerHTML = '';
 
       requests.forEach(req => {
+          if (req.status === 'rejected') return; // Don't show rejected service requests
+
           const div = document.createElement('div');
           div.classList.add('pending-request');
 
@@ -242,42 +244,6 @@ document.addEventListener("DOMContentLoaded", function() {
         .catch(err => console.error("Error submitting quote:", err));
     }
 
-    function rejectRequest(requestId) {
-        const note = document.getElementById(`quote-note-${requestId}`).value;
-
-        if (!note.trim()) {
-            alert("Please enter a note before rejecting.");
-            return;
-        }
-
-        fetch('/addQuote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                requestId,
-                responderId: 1, 
-                quotePrice: null,
-                scheduledStart: null,
-                scheduledEnd: null,
-                note: note,
-                status: 'rejected'
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert("Successfully rejected request");
-                const reqDiv = document
-                    .getElementById(`quote-price-${requestId}`)
-                    .closest('.pending-request');
-                if (reqDiv) reqDiv.remove();
-            } else {
-                alert("Error rejecting request: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error rejecting request:", err));
-    }
-
     function resubmitQuote(quoteId) {
         const newPrice = document.getElementById(`quote-price-${quoteId}`).value;
         const newStart = document.getElementById(`quote-start-${quoteId}`).value;
@@ -311,6 +277,37 @@ document.addEventListener("DOMContentLoaded", function() {
             }
         })
         .catch(err => console.error("Error resubmitting quote:", err));
+    }
+
+    function rejectRequest(requestId) {
+        const note = document.getElementById(`quote-note-${requestId}`).value;
+
+        if (!note.trim()) {
+            alert("Please enter a note before rejecting.");
+            return;
+        }
+
+        fetch('/rejectRequest', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                requestId,
+                note: note
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+              alert('Request successfully rejected.');
+                const reqDiv = document
+                    .getElementById(`quote-note-${requestId}`)
+                    .closest('.pending-request');
+                if (reqDiv) reqDiv.remove();
+            } else {
+                alert("Error rejecting request: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => console.error("Error rejecting request:", err));
     }
 
     function rejectQuote(quoteId) {
@@ -1154,7 +1151,7 @@ async function viewServiceBill(requestId) {
       .replace("{{cleaning_type}}", service_req.cleaning_type)
       .replace("{{rooms}}", service_req.rooms)
       .replace("{{scheduled_date}}", new Date(service_req.preferred_date).toLocaleString())
-      .replace("{{agreed_price}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
+      .replace("{{proposed_budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
       .replace("{{bill_notes_section}}", service_bill.note ? `<div class="section-title">Bill Notes</div><p>${service_bill.note}</p>` : "")
       .replace("{{bill_history_section}}", historyHTML);
 
