@@ -138,6 +138,187 @@ button:hover {
   transform: translateY(-2px);
 }
 
+/* --------------------------------------
+    CLIENT VIEW LISTS (Grid Containers)
+    *Ensures the cards are displayed in a responsive grid*
+   -------------------------------------- */
+#client-rejected-requests,
+#client-quotes,
+#client-bills-list {
+    display: grid;
+    /* Responsive columns: cards will be at least 350px wide */
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
+    gap: 20px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.no-results-msg {
+    grid-column: 1 / -1; /* Centers message across all columns */
+    padding: 20px;
+    color: #999;
+}
+
+/* --------------------------------------
+    UNIVERSAL CARD COMPONENTS
+   -------------------------------------- */
+
+/* Main Card Style */
+.ui-card {
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.dark-card {
+    border: 1px solid #333;
+}
+
+/* Card Header */
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: #222;
+    border-bottom: 1px solid #333;
+}
+
+.meta-info {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.quote-label, .bill-label, .rejected-request-label {
+    color: #ccc;
+    font-weight: bold;
+}
+
+/* --------------------------------------
+    STATUS TAGS (Fixes the 'Rejected not red' issue)
+   -------------------------------------- */
+.status-tag {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 0.8em;
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.status-tag-default {
+    background-color: #333;
+    color: #f0f0f0;
+}
+
+.status-tag-rejected {
+    background-color: #ff4d4d; /* RED: Fixes the issue for Rejected */
+    color: #fff;
+}
+.status-tag-unpaid, .status-tag-countered, .status-tag-disputed {
+    background-color: #ffaa00; /* ORANGE/YELLOW for Unpaid/Countered */
+    color: #000;
+}
+.status-tag-paid, .status-tag-quoted {
+    background-color: #3cb371; /* GREEN for Accepted/Paid */
+    color: #fff;
+}
+.status-tag-pending {
+    background-color: #00bcd4; /* Blue for Disputed */
+    color: #fff;
+}
+
+
+/* --------------------------------------
+    CLIENT CARD DETAIL LAYOUTS (Stacked Fields Fix)
+   -------------------------------------- */
+
+.card-body {
+    padding: 15px;
+    border-bottom: 1px solid #222;
+}
+
+/* The style for details inside the card, ensuring each field is on its own line */
+.client-details-body.stacked-layout {
+    display: flex;
+    flex-direction: column; /* Stack items vertically */
+    gap: 10px; /* Space between each field */
+}
+
+/* Individual detail items */
+.client-detail-group {
+    text-align: left;
+    display: flex; /* Helps align label and value on the same line */
+    justify-content: space-between; /* Pushes value to the right */
+    width: 100%; /* Ensures it takes the full width */
+}
+
+.client-detail-group strong {
+    color: #00bfff; 
+    min-width: 100px; 
+    padding-right: 10px;
+}
+
+.rejected-note {
+    color: #ff4d4d; /* This makes the rejection note text red */
+    font-weight: bold;
+}
+
+.amount-due {
+    color: #ffaa00; 
+    font-size: 1.1em;
+}
+
+/* Counter input group */
+.counter-group {
+    padding-top: 10px;
+    border-top: 1px solid #333;
+}
+
+/* Card Actions */
+.card-actions {
+    display: flex;
+    justify-content: flex-end; /* Align buttons to the right */
+    gap: 10px;
+    padding: 15px;
+}
+.action-btn {
+    margin-top: 0; 
+}
+.secondary-btn {
+    background-color: #333;
+    color: #f0f0f0;
+}
+.secondary-btn:hover {
+    background-color: #555;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Target any action button that is disabled */
+.action-btn[disabled],
+.action-btn[disabled]:hover {
+    /* Mute the background color */
+    background-color: #333 !important; 
+    /* Change text color to a soft grey */
+    color: #666 !important; 
+    /* Remove any hover effects */
+    box-shadow: none !important;
+    transform: none !important;
+    /* Change cursor to indicate no action */
+    cursor: not-allowed !important; 
+    /* Reduce opacity slightly to mute them further */
+    opacity: 0.7;
+}
+
+/* Ensure the primary button doesn't retain its bright blue shadow when disabled */
+.primary-btn[disabled]:hover {
+    background-color: #333 !important; /* Keep it dark */
+    box-shadow: none !important;
+}
+
 /* --- Client Request and Bill Display Styles --- */
 
 /* Main wrapper for each individual request/quote/bill */
@@ -314,11 +495,18 @@ button:hover {
 /* Override general label styling for the card context */
 .request-form-body label,
 .quote-form-body label {
-    margin: 0;
+    /* CRITICAL FIX 1: Override global max-width: 320px */
+    max-width: none !important; 
+    
+    /* CRITICAL FIX 2: Override global centered margin (0 auto 5px) */
+    margin: 0 0 5px 0 !important; 
+    
+    /* CRITICAL FIX 3: Ensure left alignment overrides global center */
+    text-align: left !important; 
+
     width: 100%;
     font-size: 0.9em;
     color: #aaaaaa;
-    text-align: left; 
 }
 
 /* Card Header/Footer Consistency (Keep the same) */
@@ -387,11 +575,6 @@ button:hover {
     background-color: #2c313a; /* Even lighter dark color for header background */
 }
 
-.bill-label, .request-label {
-    font-size: 0.85em;
-    color: #999999; /* Muted light color for secondary text */
-}
-
 /* Body and Detail text */
 .card-body {
     padding: 15px;
@@ -439,7 +622,7 @@ button:hover {
     border-top: 1px solid #3a3a3a;
 }
 
-.bill-note {
+.bill-note, .request-note, .quote-note {
     font-style: italic;
     color: #aaaaaa;
     padding: 10px 0 0;
@@ -456,10 +639,10 @@ button:hover {
 .status-tag {
     color: #1e1e1e; /* Dark text for tags to ensure readability on bright backgrounds */
 }
-.status-tag-unpaid { background-color: #ffc107; }    /* Bright Yellow/Amber */
-.status-tag-disputed { background-color: #ff6b6b; }  /* Bright Red */
-.status-tag-paid { background-color: #69f0ae; }      /* Bright Mint Green */
+.status-tag-unpaid, .status-tag-disputed { background-color: #ffaa00; }    /* Bright Yellow/Amber */
+.status-tag-paid { background-color: #3cb371; }      /* Green */
 .status-tag-default { background-color: #9e9e9e; }   /* Gray */
+.status-tag-pending { background-color: #00bcd4; }   /* Bright Cyan */ 
 
 /* Body section */
 .card-body {

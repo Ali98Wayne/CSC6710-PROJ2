@@ -144,11 +144,11 @@ class DbService{
         }
     }
 
-    async acceptQuote(requestId, status, note = null) {
+    async acceptQuote(requestId) {
         try {
             return await new Promise((resolve, reject) => {
-                const query = `UPDATE Quotes SET status = ?, note = COALESCE(?, note) WHERE request_id = ?`;
-                connection.query(query, [status, note, requestId], (err, result) => {
+                const query = `UPDATE Quotes SET status = 'accepted' WHERE request_id = ?`;
+                connection.query(query, [requestId], (err, result) => {
                     if (err) reject(err);
                     else resolve(result);
                 });
@@ -750,7 +750,7 @@ class DbService{
                     SELECT q.*, u.username
                     FROM Quotes q
                     LEFT JOIN Users u ON q.client_id = u.user_id
-                    WHERE (q.status = 'pending' OR q.status = 'countered') AND q.responder_type = 'Client'
+                    WHERE (q.status = 'quoted' OR q.status = 'countered')
                     ORDER BY q.created_at ASC;
                     `;
                 connection.query(query, (err, results) => {
@@ -805,6 +805,7 @@ class DbService{
                         r.notes,
                         r.order_generated,
                         r.bill_generated,
+                        r.status AS request_status,
                         u.username,
                         q.quote_id,
                         q.quote_price,
@@ -812,7 +813,8 @@ class DbService{
                         q.scheduled_end,
                         q.note AS quote_note,
                         q.status AS quote_status,
-                        q.responder_type
+                        q.responder_type,
+                        q.response_date
                     FROM Request_Cleaning r
                     JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q ON q.request_id = r.request_id
@@ -829,7 +831,7 @@ class DbService{
             // Attach bills for each request
             for (let req of requests) {
                 const bills = await new Promise((resolve, reject) => {
-                    const q = `SELECT bill_id, bill_amount, bill_status, due_date 
+                    const q = `SELECT bill_id, bill_amount, bill_status, due_date, note 
                             FROM Bills WHERE request_id = ?`;
                     connection.query(q, [req.request_id], (err, results) => {
                     if (err) reject(err);
@@ -845,7 +847,7 @@ class DbService{
         }
     }
 
-    async upsertQuote(requestId, quotePrice, start, end, note) {
+    async submitQuote(requestId, quotePrice, start, end, note) {
         try {
             // resolve client_id
             const clientId = await new Promise((resolve, reject) => {
@@ -857,11 +859,23 @@ class DbService{
                 });
             });
 
+            await new Promise((resolve, reject) => {
+                const updateRequest = `
+                    UPDATE Request_Cleaning 
+                    SET status = 'quoted'
+                    WHERE request_id = ?
+                `;
+                connection.query(updateRequest, [requestId], (err, res) => {
+                    if (err) reject(err);
+                    else resolve(res);
+                });
+            });
+
             const quoteId = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO Quotes 
                     (request_id, client_id, quote_price, scheduled_start, scheduled_end, note, status, responder_type)
-                    VALUES (?, ?, ?, ?, ?, ?, 'pending', 'Anna') 
+                    VALUES (?, ?, ?, ?, ?, ?, 'quoted', 'Anna') 
                 `;
                 connection.query(query, [requestId, clientId, quotePrice, start, end, note], 
                     (err, res) => {
@@ -874,7 +888,7 @@ class DbService{
             await new Promise((resolve, reject) => {
                 const historyQuery = `
                     INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
-                    VALUES (?, ?, 'Anna', ?, ?, ?, 'pending', ?);
+                    VALUES (?, ?, 'Anna', ?, ?, ?, 'quoted', ?);
                 `;
                 connection.query(historyQuery, [quoteId, clientId, quotePrice, start, end, note], (err, res) => {
                     if (err) reject(err);
@@ -888,24 +902,6 @@ class DbService{
         }
     }
 
-    // Client submits a counter-note for negotiation
-    async counterQuote(requestId, clientId, note) {
-        try {
-            const result = await new Promise((resolve, reject) => {
-                const query = `
-                    INSERT INTO Quotes 
-                    (request_id, client_id, note, status)
-                    VALUES (?, ?, ?, 'countered'
-                `;
-                connection.query(query, [requestId, clientId, note], (err, res) => {
-                    if(err) reject(err); else resolve(res.insertId);
-                });
-            });
-
-            return result;
-        } catch(err) { throw err; }
-    }
-
     async resubmitQuote(quoteId, newPrice, newStart, newEnd, note) {
         await new Promise((resolve, reject) => {
             const updateQuery = `
@@ -915,7 +911,7 @@ class DbService{
                     scheduled_start = ?,             
                     scheduled_end = ?,
                     note = ?,               
-                    status = 'pending',
+                    status = 'quoted',
                     response_date = CURRENT_TIMESTAMP()
                 WHERE quote_id = ?;
             `;
@@ -937,7 +933,7 @@ class DbService{
         await new Promise((resolve, reject) => {
             const historyQuery = `
                 INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
-                VALUES (?, ?, 'Anna', ?, ?, ?, ?, ?, ?);
+                VALUES (?, ?, 'Anna', ?, ?, ?, ?, ?);
             `;
             connection.query(historyQuery, [quoteId, updatedQuoteData.client_id, updatedQuoteData.responder_type, updatedQuoteData.quote_price, 
                 updatedQuoteData.scheduled_start, updatedQuoteData.scheduled_end, updatedQuoteData.status, updatedQuoteData.note], (err, res) => {
@@ -1052,7 +1048,7 @@ class DbService{
         }
     }
 
-    async renegotiateQuote(quoteId, note) {
+    async counterQuote(quoteId, note) {
         try {
             const quoteData = await new Promise((resolve, reject) => {
                 const q = `

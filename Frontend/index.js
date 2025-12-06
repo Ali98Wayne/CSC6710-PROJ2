@@ -1,3 +1,49 @@
+// Client dashboard view function which also refreshes content after data is successfully sent to the DB, needs to be a global function
+async function loadClientDashboardData(username) {
+    try {
+        const response = await fetch(`/clientLoadRequests/${username}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const allClientRequests = data.requests;
+            renderClientRejectedRequests(allClientRequests);
+            renderClientQuotes(allClientRequests);
+            renderClientBills(allClientRequests);
+        } else {
+            alert("Error loading client data: " + (data.error || "Unknown error"));
+        }
+
+    } catch (error) {
+        console.error("Failed to load client dashboard data:", error);
+    }
+}
+
+// Anna dashboard view function which also refreshes content after data is successfully sent to the DB, needs to be a global function
+function loadAnnaDashboardData() {
+    // Reload Pending Requests
+    fetch('/pendingRequests')
+    .then(res => res.json())
+    .then(data => {
+        renderAnnaRequestUI(data.requests);
+    });
+    // Reload Pending Quotes (Countered by Client)
+    fetch('/pendingQuotes')
+    .then(res => res.json())
+    .then(data => {
+        renderAnnaQuoteUI(data.requests);
+    });    
+    // Reload Bills
+    fetch('/getBills')
+    .then(res => res.json())
+    .then(data => {
+        renderAnnaBillUI(data.requests);
+    });        
+}
 document.addEventListener("DOMContentLoaded", function() {
     const inputFields = document.querySelectorAll("input");
     inputFields.forEach(input => input.value = ""); // Clear all input fields on page reload
@@ -38,413 +84,6 @@ document.addEventListener("DOMContentLoaded", function() {
       document.querySelector("#signup-address-state").value = "";
       document.querySelector("#signup-creditcard-month").value = "January";
     }
-
-    function formatDateTimeLocal(sqlDateTimeString) {
-        if (!sqlDateTimeString) return '';
-        // Replaces space with 'T' and truncates seconds/milliseconds
-        return sqlDateTimeString.replace(' ', 'T').substring(0, 16);
-    }
-
-
-    function findAndRemoveCard(listId, cardType, idValue) {
-        const list = document.getElementById(listId);
-        if (!list) return false;
-
-        // Robustly find the card element by iterating and checking the label content
-        const cardElement = Array.from(list.children).find(card => {
-            const label = card.querySelector('.request-label');
-            return label && label.textContent.includes(`${cardType} #${idValue}`);
-        });
-
-        if (cardElement) {
-            cardElement.remove();
-            // Check if the section is now empty and hide it
-            const sectionContainerId = listId.replace('-list', '-section');
-            const sectionContainer = document.getElementById(sectionContainerId);
-            if (list.children.length === 0 && sectionContainer) {
-                sectionContainer.style.display = 'none';
-            }
-            return true;
-        }
-        return false;
-    }
-
-    function renderAnnaRequestUI(requests) {
-      const sectionContainer = document.getElementById('pending-requests-section');
-      const container = document.getElementById('pending-requests-list');
-
-      if (!requests || requests.length === 0) {
-        if (sectionContainer) sectionContainer.style.display = 'none';
-        container.innerHTML = ''; // Ensure the list is empty
-        return; 
-      }
-
-      if (sectionContainer) sectionContainer.style.display = 'block';
-
-      container.innerHTML = '';
-
-      requests.forEach(req => {
-          if (req.status === 'rejected') return; // Don't show rejected service requests
-
-  const div = document.createElement('div');
-        div.className = 'ui-card dark-card request-item-card';
-
-        div.innerHTML = `
-            <div class="card-header">
-                <div class="meta-info">
-                    <span class="request-label">Request #${req.request_id} from ${req.username}</span>
-                </div>
-                <span class="status-tag status-tag-default">Pending Quote</span>
-            </div>
-            
-            <div class="card-body request-form-body">              
-                <div class="input-group">
-                    <label for="quote-price-${req.request_id}">Price ($):</label>
-                    <input type="number" placeholder="0.00" id="quote-price-${req.request_id}">
-                </div>
-
-                <div class="input-group">
-                    <label for="quote-start-${req.request_id}">Start:</label>
-                    <input type="datetime-local" id="quote-start-${req.request_id}">
-                </div>
-
-                <div class="input-group">
-                    <label for="quote-end-${req.request_id}">End:</label>
-                    <input type="datetime-local" id="quote-end-${req.request_id}">
-                </div>
-                
-                <div class="input-group full-width-input">
-                    <label for="quote-note-${req.request_id}">Note:</label>
-                    <input type="text" placeholder="Optional note for client" id="quote-note-${req.request_id}">
-                </div>
-            </div>
-
-            <div class="card-actions action-group">
-                <button class="action-btn secondary-btn reject-request-btn">Reject</button>
-                <button class="action-btn primary-btn submit-quote-btn">Submit Quote</button>
-            </div>
-        `;
-
-          // Attach listeners dynamically
-          div.querySelector('.submit-quote-btn')
-            .addEventListener('click', () => submitQuote(req.request_id));
-
-          div.querySelector('.reject-request-btn')
-            .addEventListener('click', () => rejectRequest(req.request_id));
-
-          container.appendChild(div);
-      });
-    }
-
-    function renderAnnaQuoteUI(requests) {
-        const sectionContainer = document.getElementById('pending-quotes-section');
-        const container = document.getElementById('pending-quotes-list');
-
-        if (!requests || requests.length === 0) {
-            if (sectionContainer) sectionContainer.style.display = 'none';
-            container.innerHTML = '';
-            return;
-        }
-
-        if (sectionContainer) sectionContainer.style.display = 'block';
-
-        container.innerHTML = '';
-
-        requests.forEach(req => {
-            const div = document.createElement('div');
-            div.className = 'ui-card dark-card quote-item-card';
-
-            const formattedStart = formatDateTimeLocal(req.scheduled_start);
-            const formattedEnd = formatDateTimeLocal(req.scheduled_end);
-
-            div.innerHTML = `
-                <div class="card-header">
-                    <div class="meta-info">
-                        <span class="request-label">Quote #${req.quote_id} from ${req.username}</span>
-                    </div>
-                    <span class="status-tag status-tag-unpaid">Countered</span>
-                </div>
-                
-                <div class="card-body quote-form-body">
-                    <p class="card-title">Resubmit or Modify Quote</p>
-                    
-                    <div class="input-group">
-                        <label for="quote-price-${req.quote_id}">Price ($):</label>
-                        <input type="number" value="${req.quote_price}" id="quote-price-${req.quote_id}">
-                    </div>
-
-                    <div class="input-group">
-                        <label for="quote-start-${req.quote_id}">Start:</label>
-                        <input type="datetime-local" value="${formattedStart}" id="quote-start-${req.quote_id}">
-                    </div>
-
-                    <div class="input-group">
-                        <label for="quote-end-${req.quote_id}">End:</label>
-                        <input type="datetime-local" value="${formattedEnd}" id="quote-end-${req.quote_id}">
-                    </div>
-                    
-                    <div class="input-group full-width-input">
-                        <label for="quote-note-${req.quote_id}">Note:</label>
-                        <input type="text" value="${req.note || ''}" id="quote-note-${req.quote_id}">
-                    </div>
-                </div>
-
-                <div class="card-actions action-group">
-                    <button class="action-btn secondary-btn cancel-quote-btn">Cancel</button>
-                    <button class="action-btn secondary-btn reject-quote-btn">Reject</button>
-                    <button class="action-btn primary-btn resubmit-quote-btn">Resubmit Quote</button>
-                </div>
-            `;
-
-            div.querySelector('.resubmit-quote-btn')
-                .addEventListener('click', () => resubmitQuote(req.quote_id));
-
-            div.querySelector('.reject-quote-btn')
-                .addEventListener('click', () => rejectQuote(req.quote_id));
-
-            div.querySelector('.cancel-quote-btn')
-                .addEventListener('click', () => cancelQuote(req.quote_id));
-
-            container.appendChild(div);
-        });
-    }
-
-    function renderAnnaBillUI(requests) {
-        const sectionContainer = document.getElementById('bills-section');
-        const container = document.getElementById('bills-list'); 
-
-        if (!requests || requests.length === 0) {
-            if (sectionContainer) sectionContainer.style.display = 'none';
-            if (container) container.innerHTML = '';
-            return;
-        }
-
-        if (sectionContainer) sectionContainer.style.display = 'block';
-        container.innerHTML = ''; 
-
-        requests.forEach(bill => {
-            const date = new Date(bill.due_date).toLocaleDateString();
-            const amount = Number(bill.bill_amount).toFixed(2);
-            const status = bill.bill_status.toLowerCase();
-            
-            let statusClass = 'status-tag-default';
-            let buttonText = 'Revise Bill';
-            
-            if (status === 'disputed') {
-                statusClass = 'status-tag-disputed'; 
-                buttonText = 'Resolve Dispute';
-            } else if (status === 'unpaid') {
-                statusClass = 'status-tag-unpaid'; 
-            } else if (status === 'paid') {
-                statusClass = 'status-tag-paid'; 
-            }
-
-            const showReviseButton = status !== 'paid';
-
-            const billCard = document.createElement('div');
-            billCard.className = 'ui-card dark-card bill-item-card'; 
-
-            billCard.innerHTML = `
-                <div class="card-header">
-                    <div class="meta-info">
-                        <span class="bill-label">Bill #${bill.bill_id}</span>
-                        <span class="request-label">Request #${bill.request_id}</span>
-                    </div>
-                    <span class="status-tag ${statusClass}">${bill.bill_status}</span>
-                </div>
-                
-                <div class="card-body">
-                    <div class="client-info">
-                        <strong>Client:</strong> ${bill.first_name} ${bill.last_name}
-                    </div>
-                    <div class="financial-details">
-                        <div class="detail-row">
-                            <span>Amount Due:</span>
-                            <strong class="amount-due">$${amount}</strong>
-                        </div>
-                        <div class="detail-row">
-                            <span>Due Date:</span>
-                            <span class="due-date">${date}</span>
-                        </div>
-                    </div>
-                    ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
-                </div>
-
-                <div class="card-actions action-group"> 
-                    <button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}">View Bill</button>
-                    
-                    ${showReviseButton ? `
-                        <button class="action-btn primary-btn revise-action-btn" data-bill-id="${bill.bill_id}">
-                            ${buttonText}
-                        </button>
-                    ` : ''}
-                </div>
-            `;
-
-            billCard.querySelector('.view-bill-btn')
-            .addEventListener('click', () => viewServiceBill(bill.request_id));
-
-            if (showReviseButton) {
-                billCard.querySelector('.revise-action-btn')
-                .addEventListener('click', () => initiateBillRevision(bill.request_id));
-            }
-
-            container.appendChild(billCard);
-        });
-    }
-
-    function submitQuote(requestId) {
-        const price = document.getElementById(`quote-price-${requestId}`).value;
-        const start = document.getElementById(`quote-start-${requestId}`).value;
-        const end = document.getElementById(`quote-end-${requestId}`).value;
-        const note = document.getElementById(`quote-note-${requestId}`).value;
-
-        // Basic validation
-        if (!price || !start || !end) {
-            alert("Please enter price, start, and end dates for the quote.");
-            return;
-        }
-
-        fetch('/addQuote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                requestId,
-                quotePrice: price, 
-                scheduledStart: start, 
-                scheduledEnd: end, 
-                note: note || ''
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert("Successfully submitted quote");
-                findAndRemoveCard('pending-requests-list', 'Request', requestId);
-            } else {
-                alert("Error submitting quote: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error submitting quote:", err));
-}
-
-    function resubmitQuote(quoteId) {
-        const newPrice = document.getElementById(`quote-price-${quoteId}`).value;
-        const newStart = document.getElementById(`quote-start-${quoteId}`).value;
-        const newEnd = document.getElementById(`quote-end-${quoteId}`).value;
-        const note = document.getElementById(`quote-note-${quoteId}`).value;
-
-        if (!newPrice || !newStart || !newEnd) {
-            alert("Please enter price, start, and end dates for the quote.");
-            return;
-        }
-
-        fetch('/resubmitQuote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              quoteId: quoteId,
-              newPrice: newPrice,
-              newStart: newStart,
-              newEnd: newEnd,
-              note: note
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert('Quote successfully resubmitted. Status reset to pending for client.');
-                findAndRemoveCard('pending-quotes-list', 'Quote', quoteId);
-            } else {
-                alert("Error resubmitting quote: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error resubmitting quote:", err));
-    }
-
-    function rejectRequest(requestId) {
-        const note = document.getElementById(`quote-note-${requestId}`).value;
-
-        if (!note.trim()) {
-            alert("Please enter a note before rejecting.");
-            return;
-        }
-
-        fetch('/rejectRequest', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                requestId,
-                note: note
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-              alert('Request successfully rejected.');
-              findAndRemoveCard('pending-requests-list', 'Request', requestId);
-            } else {
-                alert("Error rejecting request: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error rejecting request:", err));
-    }
-
-    function rejectQuote(quoteId) {
-        const note = document.getElementById(`quote-note-${quoteId}`).value;
-
-        if (!note.trim()) {
-            alert("Please enter a note before rejecting.");
-            return;
-        }
-
-        fetch('/rejectQuote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                quoteId,
-                note: note
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-              alert('Quote successfully rejected.');
-              findAndRemoveCard('pending-quotes-list', 'Quote', quoteId);
-            } else {
-                alert("Error rejecting quote: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error rejecting quote:", err));
-    }
-
-  function cancelQuote(quoteId) {
-      const note = document.getElementById(`quote-note-${quoteId}`).value;
-
-      if (!note.trim()) {
-          alert("Please enter a note explaining the cancellation.");
-          return;
-      }
-
-      fetch('/cancelQuote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-              quoteId: quoteId,
-              note: note,
-          })
-      })
-      .then(res => res.json())
-      .then(data => {
-          if (data.success) {
-              alert('Quote successfully cancelled.');
-              findAndRemoveCard('pending-quotes-list', 'Quote', quoteId);
-          } else {
-              alert("Error cancelling quote: " + (data.error || "Unknown error"));
-          }
-      })
-      .catch(err => console.error("Error cancelling quote:", err));
-  }
 
     // Sign up implementation
     const signupBtn = document.querySelector("#signup-btn");
@@ -604,6 +243,7 @@ document.addEventListener("DOMContentLoaded", function() {
         const queriesSection = document.querySelector("#queries-section");
         const queryResults = document.querySelector("#query-results");
         const queryBody = document.querySelector('#query-results tbody');
+        const clientRequestsSection = document.getElementById("client-rejected-requests-section"); 
         const clientQuotesSection = document.getElementById("client-quotes-section"); 
         const clientBillsSection = document.getElementById("client-bills-section");
         const pendingRequestsSection = document.getElementById("pending-requests-section");
@@ -620,40 +260,27 @@ document.addEventListener("DOMContentLoaded", function() {
             serviceOrdersList.style.display = "none";
             queriesSection.style.display = "none";
             queryResults.style.display = "none";
+            clientRequestsSection.style.display = "block";
             clientQuotesSection.style.display = "block";
             clientBillsSection.style.display = "block";
             pendingRequestsSection.style.display = "none";
             pendingQuotesSection.style.display = "none";
             billsSection.style.display = "none";
             if (queryBody) queryBody.innerHTML = '';
-            clientLoadRequests(currentUser);
-            loadBills(currentUser);
+            loadClientDashboardData(currentUser);
         } else if (isAnnaUser) {
             signupSection.style.display = "none";
             loginSection.style.display = "none";
             serviceRequest.style.display = "none";
             serviceOrdersList.style.display = "block";
             queriesSection.style.display = 'block';
+            clientRequestsSection.style.display = "none";
             clientQuotesSection.style.display = "none";
             clientBillsSection.style.display = "none";
             pendingRequestsSection.style.display = "block";
             pendingQuotesSection.style.display = "block";
             billsSection.style.display = "block";
-            fetch('/pendingRequests')
-            .then(res => res.json())
-            .then(data => {
-                renderAnnaRequestUI(data.requests);
-            });
-            fetch('/pendingQuotes')
-            .then(res => res.json())
-            .then(data => {
-                renderAnnaQuoteUI(data.requests);
-            });      
-            fetch('/getBills')
-            .then(res => res.json())
-            .then(data => {
-                renderAnnaBillUI(data.requests);
-            });        
+            loadAnnaDashboardData();   
         } else {
             signupSection.style.display = "block";
             loginSection.style.display = "none";
@@ -667,6 +294,7 @@ document.addEventListener("DOMContentLoaded", function() {
             queriesSection.style.display = "none";
             queryResults.style.display = "none";
             if (queryBody) queryBody.innerHTML = '';
+            clientRequestsSection.style.display = "none";
             clientQuotesSection.style.display = "none";
             clientBillsSection.style.display = "none";
             pendingRequestsSection.style.display = "none";
@@ -1106,7 +734,7 @@ function serviceOrdersList(data) {
         btn.addEventListener('click', async (e) => {
             const requestId = e.target.dataset.id;
             // We need to fetch the bill ID first because this table only has Request ID
-            await initiateBillRevision(requestId);
+            await reviseBill(requestId);
         });
     });
 }
@@ -1295,174 +923,654 @@ function buildBillHistoryHTML(historyEntries) {
   return html;
 }
 
-// Function to render the client's quotes/request history and manage visibility
-function clientRenderQuotes(requests) {
-    const container = document.getElementById('client-quotes-section'); // Assumed ID for the main quotes container
-    const listContainer = document.getElementById('client-requests'); // The inner list container
+function formatDateTimeLocal(sqlDateTimeString) {
+    if (!sqlDateTimeString) return '';
+    // Replaces space with 'T' and truncates seconds/milliseconds
+    return sqlDateTimeString.replace(' ', 'T').substring(0, 16);
+}
+
+function renderAnnaRequestUI(requests) {
+    const sectionContainer = document.getElementById('pending-requests-section');
+    const container = document.getElementById('pending-requests-list');
 
     if (!requests || requests.length === 0) {
-        if (container) container.style.display = 'none';
-        listContainer.innerHTML = '';
-        return;
+    if (sectionContainer) sectionContainer.style.display = 'none';
+    container.innerHTML = ''; // Ensure the list is empty
+    return; 
     }
 
-    if (container) container.style.display = 'block';
+    if (sectionContainer) sectionContainer.style.display = 'block';
 
-    let innerHTML = "";
-    
+    container.innerHTML = '';
+
     requests.forEach(req => {
-        // Render each request/quote item
-        innerHTML += `<div class="client-request-item" id="client-request-${req.request_id}">`;
 
-        innerHTML += `<strong>Request #${req.request_id} from ${req.username || 'undefined'}</strong>`;
+    const div = document.createElement('div');
+    div.className = 'ui-card dark-card request-item-card';
 
-        // Quote/Request Details - Using the horizontal layout structure
-        innerHTML += `
-            <div class="quote-details-container">
-                <span class="detail-field"><strong>Quote Price:&nbsp;</strong> ${req.quote_price ? `$${Number(req.quote_price).toFixed(2)}` : 'No quote yet.'}</span>
-                <span class="detail-field"><strong>Start Time:&nbsp;</strong> ${req.scheduled_start ? new Date(req.scheduled_start).toLocaleString() : '--:-- --'}</span>
-                <span class="detail-field"><strong>End Time:&nbsp;</strong> ${req.scheduled_end ? new Date(req.scheduled_end).toLocaleString() : '--:-- --'}</span>
-                <span class="detail-field full-width"><strong>Note:&nbsp;</strong> ${req.quote_note || 'N/A'}</span>
+    div.innerHTML = `
+        <div class="card-header">
+            <div class="meta-info">
+                <span class="request-label">Request #${req.request_id}</span>
             </div>
-        `;
-
-        // Check if the quote status is 'accepted'
-        if (req.quote_status === 'accepted') {
-            // Quote has been accepted (by client or Anna)
-            innerHTML += `<div class="client-quote-buttons accepted-state">
-                              <div style="color:green; font-weight:bold;">Quote Accepted!</div>
-                          </div>`;
-
-        } else if (req.quote_status !== 'rejected' && req.quote_price) {
-            // Quote is pending/ready for acceptance (has a price, not rejected)
-            innerHTML += `<div class="client-quote-buttons">
-                             <button onclick="acceptQuote(${req.request_id})">Accept</button> 
-                             <button onclick="renegotiateQuote(${req.quote_id}, ${req.quote_price})">Renegotiate</button>
-                          </div>`;
-
-        } else if (req.quote_status === 'rejected') {
-            // Quote was rejected by Anna
-            innerHTML += `<div class="rejected-state">Quote Rejected</div>`;
-            innerHTML += `<button onclick="renegotiateQuote(${req.quote_id})">Renegotiate</button>`;
-        }
-
-        // Service Order Status
-        innerHTML += `<div style="margin-top:10px;">`;
-        if (req.quote_status === 'accepted' && req.order_generated) {
-            innerHTML += `<button onclick="viewServiceOrder(${req.request_id})">View Service Agreement</button>`;
-        } else {
-            innerHTML += `<span>Service Order is Pending</span>`;
-        }
-        innerHTML += `</div>`;
+            <span class="status-tag status-tag-pending">Pending Quote</span>
+        </div>
         
-        innerHTML += `</div>`; // Close client-request-item box
-    });
+        <div class="card-body request-form-body">
+            <div class="detail-row">
+                <span>Address:</span>
+                <span>${req.service_address_street}, ${req.service_address_city}, ${req.service_address_state} ${req.service_address_zip}</span>
+            </div>
+            <div class="detail-row">
+                <span>Cleaning Type:</span>
+                <span>${req.cleaning_type}</span>
+            </div>
+            <div class="detail-row">
+                <span>Rooms:</span>
+                <span>${req.rooms}</span>
+            </div>
+            <div class="detail-row">
+                <span>Preferred Date:</span>
+                <span>${new Date(req.preferred_date).toLocaleString()}</span>
+            </div>
+            <div class="detail-row">
+                <span>Proposed Budget:</span>
+                <span>${req.proposed_budget}</span>
+            </div>
+            ${req.notes ? `<p class="request-note">Note: ${req.notes}</p>` : ''}
+            <div class="input-group">
+                <label for="request-price-${req.request_id}">Price ($):</label>
+                <input type="number" placeholder="0.00" id="request-price-${req.request_id}">
+            </div>
 
-    listContainer.innerHTML = innerHTML;
+            <div class="input-group">
+                <label for="request-start-${req.request_id}">Start:</label>
+                <input type="datetime-local" id="request-start-${req.request_id}">
+            </div>
+
+            <div class="input-group">
+                <label for="request-end-${req.request_id}">End:</label>
+                <input type="datetime-local" id="request-end-${req.request_id}">
+            </div>
+            
+            <div class="input-group full-width-input">
+                <label for="request-note-${req.request_id}">Note:</label>
+                <input type="text" placeholder="Optional note for client" id="request-note-${req.request_id}">
+            </div>
+        </div>
+
+        <div class="card-actions action-group">
+            <button class="action-btn secondary-btn reject-request-btn">Reject</button>
+            <button class="action-btn primary-btn submit-quote-btn">Submit Quote</button>
+        </div>
+    `;
+
+        // Attach listeners dynamically
+        div.querySelector('.submit-quote-btn')
+        .addEventListener('click', () => submitQuote(req.request_id));
+
+        div.querySelector('.reject-request-btn')
+        .addEventListener('click', () => rejectRequest(req.request_id));
+
+        container.appendChild(div);
+    });
 }
 
-// Function to render the client's bills and manage visibility
-function clientRenderBills(allBills) {
-    const container = document.getElementById('client-bills-section'); // Main bills container
-    const listContainer = document.getElementById('client-bills-list'); // Inner list container
-    const visibleBills = allBills.filter(bill => 
-        bill.bill_status && bill.bill_status.toLowerCase() !== "disputed"
-    );
+function renderAnnaQuoteUI(requests) {
+    const sectionContainer = document.getElementById('pending-quotes-section');
+    const container = document.getElementById('pending-quotes-list');
 
-    if (!visibleBills || visibleBills.length === 0) {
-        if (container) container.style.display = 'none';
-        listContainer.innerHTML = '';
+    if (!requests || requests.length === 0) {
+        if (sectionContainer) sectionContainer.style.display = 'none';
+        container.innerHTML = '';
         return;
     }
 
-    if (container) container.style.display = 'block';
+    if (sectionContainer) sectionContainer.style.display = 'block';
 
-    let innerHTML = "";
+    container.innerHTML = '';
 
-    visibleBills.forEach(bill => {
-        const color = (bill.bill_status && bill.bill_status.toLowerCase() === "paid") ? "green" : "red";
-        let due = bill.due_date ? new Date(bill.due_date).toLocaleDateString() : 'N/A';
-        
-        // Use a class for the bill section for cleaner CSS
-        innerHTML += `
-            <div class="client-bill-section" id="bill-section-${bill.bill_id}">
-                
-                <div class="bill-summary-line" style="color:${color};">
-                    <span class="detail-field"><strong>Amount</strong>:&nbsp;$${Number(bill.bill_amount).toFixed(2)}</span>
-                    <span class="detail-field"><strong>Status</strong>:&nbsp;${bill.bill_status || 'Undefined'}</span>
-                    <span class="detail-field"><strong>Due</strong>:&nbsp;${due}</span>
+    requests.forEach(req => {
+        const div = document.createElement('div');
+        div.className = 'ui-card dark-card quote-item-card';
+
+        const formattedStart = formatDateTimeLocal(req.scheduled_start);
+        const formattedEnd = formatDateTimeLocal(req.scheduled_end);
+        const status = req.status.toLowerCase();
+        let statusClass = 'status-tag-default';
+
+        if (status === 'quoted') {
+            statusClass = 'status-tag-quoted'; 
+            buttonText = 'Resolve Dispute';
+        } else if (status === 'countered') {
+            statusClass = 'status-tag-countered'; 
+        }
+
+        div.innerHTML = `
+            <div class="card-header">
+                <div class="meta-info">
+                    <span class="quote-label">Quote #${req.quote_id}</span>
+                    <span class="request-label">Request #${req.request_id}</span>
+                </div>
+                <span class="status-tag ${statusClass}">${req.status}</span>
+            </div>
+            
+            <div class="card-body quote-form-body">             
+                <div class="input-group">
+                    <label for="quote-price-${req.quote_id}">Price ($):</label>
+                    <input type="number" value="${req.quote_price}" id="quote-price-${req.quote_id}">
+                </div>
+
+                <div class="input-group">
+                    <label for="quote-start-${req.quote_id}">Start:</label>
+                    <input type="datetime-local" value="${formattedStart}" id="quote-start-${req.quote_id}">
+                </div>
+
+                <div class="input-group">
+                    <label for="quote-end-${req.quote_id}">End:</label>
+                    <input type="datetime-local" value="${formattedEnd}" id="quote-end-${req.quote_id}">
                 </div>
                 
-                <div id="bill-actions-${bill.bill_id}" style="margin-top:10px;">
-                    ${
-                        bill.bill_status && bill.bill_status.toLowerCase() === "paid"
-                            ? `<div class="paid-state">Payment submitted successfully.</div>`
-                            : `
-                              <div class="bill-buttons">
-                                <button onclick="viewServiceBill(${bill.bill_id})">View Details</button>
-                                <button onclick="openPayForm(${bill.bill_id}, ${bill.request_id})">Pay</button>
-                                <button onclick="disputeBill(${bill.bill_id})">Dispute</button>
-                              </div>
-                              <div id="pay-form-${bill.bill_id}" style="margin-top:10px;"></div>
-                              `
-                    }
+                <div class="input-group full-width-input">
+                    <label for="quote-note-${req.quote_id}">Note:</label>
+                    <input type="text" value="${req.note || ''}" id="quote-note-${req.quote_id}">
                 </div>
             </div>
+
+            <div class="card-actions action-group">
+                <button class="action-btn secondary-btn cancel-quote-btn">Cancel</button>
+                <button class="action-btn secondary-btn reject-quote-btn">Reject</button>
+                <button class="action-btn primary-btn resubmit-quote-btn">Resubmit Quote</button>
+            </div>
         `;
+
+        div.querySelector('.resubmit-quote-btn')
+            .addEventListener('click', () => resubmitQuote(req.quote_id));
+
+        div.querySelector('.reject-quote-btn')
+            .addEventListener('click', () => rejectQuote(req.quote_id));
+
+        div.querySelector('.cancel-quote-btn')
+            .addEventListener('click', () => cancelQuote(req.quote_id));
+
+        container.appendChild(div);
     });
-    
-    listContainer.innerHTML = innerHTML;
 }
 
-// Function for clients to load their quotes & bills
-function clientLoadRequests(username) {
-    const clientRequestsContainer = document.getElementById("client-requests");
-    const clientBillsContainer = document.getElementById("client-bills-list");
+function renderAnnaBillUI(requests) {
+    const sectionContainer = document.getElementById('bills-section');
+    const container = document.getElementById('bills-list'); 
+
+    if (!requests || requests.length === 0) {
+        if (sectionContainer) sectionContainer.style.display = 'none';
+        if (container) container.innerHTML = '';
+        return;
+    }
+
+    if (sectionContainer) sectionContainer.style.display = 'block';
+    container.innerHTML = ''; 
+
+    requests.forEach(bill => {
+        const date = new Date(bill.due_date).toLocaleDateString();
+        const amount = Number(bill.bill_amount).toFixed(2);
+        const status = bill.bill_status.toLowerCase();
+        
+        let statusClass = 'status-tag-default';
+        let buttonText = 'Revise Bill';
+        
+        if (status === 'disputed') {
+            statusClass = 'status-tag-disputed'; 
+            buttonText = 'Resolve Dispute';
+        } else if (status === 'unpaid') {
+            statusClass = 'status-tag-unpaid'; 
+        } else if (status === 'paid') {
+            statusClass = 'status-tag-paid'; 
+        }
+
+        const showReviseButton = status !== 'paid';
+
+        const billCard = document.createElement('div');
+        billCard.className = 'ui-card dark-card bill-item-card'; 
+
+        billCard.innerHTML = `
+            <div class="card-header">
+                <div class="meta-info">
+                    <span class="bill-label">Bill #${bill.bill_id}</span>
+                    <span class="request-label">Request #${bill.request_id}</span>
+                </div>
+                <span class="status-tag ${statusClass}">${bill.bill_status}</span>
+            </div>
+            
+            <div class="card-body">
+                <div class="client-info">
+                    <strong>Client:</strong> ${bill.first_name} ${bill.last_name}
+                </div>
+                <div class="financial-details">
+                    <div class="detail-row">
+                        <span>Amount Due:</span>
+                        <strong class="amount-due">$${amount}</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Due Date:</span>
+                        <span class="due-date">${date}</span>
+                    </div>
+                </div>
+                ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
+            </div>
+
+            <div class="card-actions action-group"> 
+                <button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}">View Bill</button>
+                
+                ${showReviseButton ? `
+                    <button class="action-btn primary-btn revise-action-btn" data-bill-id="${bill.bill_id}">
+                        ${buttonText}
+                    </button>
+                ` : ''}
+            </div>
+        `;
+
+        billCard.querySelector('.view-bill-btn')
+        .addEventListener('click', () => viewServiceBill(bill.request_id));
+
+        if (showReviseButton) {
+            billCard.querySelector('.revise-action-btn')
+            .addEventListener('click', () => reviseBill(bill.request_id));
+        }
+
+        container.appendChild(billCard);
+    });
+}
+
+function submitQuote(requestId) {
+    const price = document.getElementById(`request-price-${requestId}`).value;
+    const start = document.getElementById(`request-start-${requestId}`).value;
+    const end = document.getElementById(`request-end-${requestId}`).value;
+    const note = document.getElementById(`request-note-${requestId}`).value;
+
+    // Basic validation
+    if (!price || !start || !end) {
+        alert("Please enter price, start, and end dates for the quote.");
+        return;
+    }
+
+    fetch('/addQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            requestId,
+            quotePrice: price, 
+            scheduledStart: start, 
+            scheduledEnd: end, 
+            note: note || ''
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("Successfully submitted quote");
+            loadAnnaDashboardData();
+        } else {
+            alert("Error submitting quote: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error submitting quote:", err));
+}
+
+function resubmitQuote(quoteId) {
+    const priceString = document.getElementById(`quote-price-${quoteId}`).value.trim();
+    const newStart = document.getElementById(`quote-start-${quoteId}`).value.trim();
+    const newEnd = document.getElementById(`quote-end-${quoteId}`).value.trim();
+    const note = document.getElementById(`quote-note-${quoteId}`).value.trim();
+
+    const parsedPrice = parseFloat(priceString);
+
+    if (!priceString || isNaN(parsedPrice) || !newStart || !newEnd) {
+        alert("Please enter a valid numeric price, start, and end dates for the quote.");
+        return;
+    }
     
-    // Clear/Hide both sections initially
-    if (clientRequestsContainer) clientRequestsContainer.innerHTML = '';
-    if (clientBillsContainer) clientBillsContainer.innerHTML = '';
-    
-    // fetch server endpoint that returns requests (with nested bills)
-    fetch(`/clientLoadRequests/${username}`)
-      .then(res => res.json())
-      .then(data => {
-        if (!data.success) {
-            console.error(data.error);
-            // Hide the sections via the render functions called below
-            clientRenderQuotes([]);
-            clientRenderBills([]);
+    if (parsedPrice <= 0) {
+        alert("Price must be greater than zero.");
+        return;
+    }
+
+    fetch('/resubmitQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quoteId: quoteId,
+            newPrice: parsedPrice,
+            newStart: newStart,
+            newEnd: newEnd,
+            note: note
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Quote successfully resubmitted.');
+            loadAnnaDashboardData();
+        } else {
+            alert("Error resubmitting quote: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error resubmitting quote:", err));
+}
+
+function rejectRequest(requestId) {
+    const note = prompt("Please enter a note explaining the request rejection:");
+
+    if (!note || note.trim() === "") {
+        alert("Request rejection requires a note.");
+        return;
+    }
+
+    fetch('/rejectRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            requestId,
+            note: note
+        })
+    })
+    .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+              alert('Request successfully rejected.');
+              loadAnnaDashboardData();
+            } else {
+                alert("Error rejecting request: " + (data.error || "Unknown error"));
+            }
+        })
+        .catch(err => console.error("Error rejecting request:", err));
+    }
+
+    function rejectQuote(quoteId) {
+        const note = prompt("Enter a note for this quote rejection:");
+        if (note === null) return;
+
+        if (!note.trim()) {
+            alert("Please enter a note before rejecting.");
             return;
         }
 
-        window.clientRequests = data.requests; 
-
-        let allBills = [];
-        const requestsWithoutBills = data.requests.map(req => {
-            if (req.bills && req.bills.length > 0) {
-                // Add request_id to each bill for context in the bill-specific functions
-                req.bills.forEach(bill => {
-                    bill.request_id = req.request_id; 
-                    allBills.push(bill);
-                });
+        fetch('/rejectQuote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                quoteId,
+                note: note
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+              alert('Quote successfully rejected.');
+              loadAnnaDashboardData();
+            } else {
+                alert("Error rejecting quote: " + (data.error || "Unknown error"));
             }
-            // Return the request object (without bills) for quote rendering
-            return req;
-        });
+        })
+        .catch(err => console.error("Error rejecting quote:", err));
+    }
 
-        // 2. CALL THE TWO DEDICATED RENDER FUNCTIONS
-        clientRenderQuotes(requestsWithoutBills);
-        clientRenderBills(allBills);
+  function cancelQuote(quoteId) {
+        const note = prompt("Enter a note for canceling this quote:");
+        if (note === null) return;
+
+        if (!note.trim()) {
+            alert("Please enter a note before rejecting.");
+            return;
+        }
+
+      fetch('/cancelQuote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+              quoteId: quoteId,
+              note: note,
+          })
       })
-      .catch(err => {
-        console.error("Error fetching client requests:", err);
-        clientRenderQuotes([]);
-        clientRenderBills([]);
-      });
+      .then(res => res.json())
+      .then(data => {
+          if (data.success) {
+              alert('Quote successfully cancelled.');
+              loadAnnaDashboardData();
+          } else {
+              alert("Error cancelling quote: " + (data.error || "Unknown error"));
+          }
+      })
+      .catch(err => console.error("Error cancelling quote:", err));
+  }
+
+// Function for client to see their rejected requests
+function renderClientRejectedRequests(requests) {
+    const rejectedRequests = requests.filter(request =>
+        request.request_status === 'rejected'
+    );
+
+    const container = document.getElementById('client-rejected-requests');
+    const sectionContainer = document.getElementById('client-rejected-requests-section');
+
+    if (!container || !sectionContainer) return;
+
+    container.innerHTML = ''; 
+
+    if (rejectedRequests.length === 0) {
+        sectionContainer.style.display = 'none';
+        return;
+    }
+
+    sectionContainer.style.display = 'block';
+
+    rejectedRequests.forEach(request => {
+        const item = document.createElement('div');
+        item.className = 'ui-card dark-card rejected-card'; 
+        
+        item.innerHTML = `
+            <div class="card-header">
+                <div class="meta-info">
+                    <span class="request-label">Request #${request.request_id}</span>
+                </div>
+                <span class="status-tag status-tag-rejected">REJECTED</span>
+            </div>
+            
+            <div class="card-body">
+                <div class="financial-details" style="border-top: none; padding-top: 0;"> 
+                    <div class="detail-row">
+                        <span>Service Address:</span>
+                        <span>${request.service_address_street}, ${request.service_address_city}, ${request.service_address_city} ${request.service_address_zip}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Service Type:</span>
+                        <span>${request.cleaning_type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Rooms:</span>
+                        <span>${request.rooms}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Preferred Date:</span>
+                        <span>${new Date(request.preferred_date).toLocaleString()}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Proposed Budget:</span>
+                        <span>$${Number(request.proposed_budget).toFixed(2)}</span>
+                    </div>
+                </div>
+                
+                ${request.notes ? `<p class="request-note">Note: ${request.notes}</p>` : ''}
+            </div>
+        `;
+        container.appendChild(item);
+    });
 }
 
-// open a simple Pay modal/form (no real transaction) — keeps comments and is purely front-end for project
-function openPayForm(billId, requestId) {
+// Function for client to manage quotes
+function renderClientQuotes(requests) {
+    // Filter for requests that have a quote and are not fully resolved (rejected, canceled)
+    const activeQuotes = requests.filter(request => 
+        request.quote_id && 
+        request.quote_status !== 'rejected' && 
+        request.quote_status !== 'canceled'
+    );
+
+    const container = document.getElementById('client-quotes');
+    const sectionContainer = document.getElementById('client-quotes-section');
+    
+    if (!container || !sectionContainer) return;
+
+    container.innerHTML = '';
+    sectionContainer.style.display = activeQuotes.length > 0 ? 'block' : 'none';
+
+    activeQuotes.forEach(request => {
+        const isActionNeeded = request.quote_status === 'quoted' || request.quote_status === 'countered';
+        
+        // Use a consistent status tag class
+        const statusClass = isActionNeeded ? 'status-tag-pending' : 'status-tag-paid'; 
+        const statusText = isActionNeeded ? request.quote_status.toUpperCase() : 'ACCEPTED';
+        
+        const item = document.createElement('div');
+        // 💡 Styling Fix: Added 'dark-card'
+        item.className = 'ui-card dark-card quote-item-card';
+        
+        item.innerHTML = `
+            <div class="card-header">
+                <div class="meta-info">
+                    <span class="quote-label">Quote #${request.quote_id}</span>
+                    <span class="request-label">Request #${request.request_id}</span>
+                </div>
+                <span class="status-tag ${statusClass}">${statusText}</span>
+            </div>
+            
+            <div class="card-body">
+                <div class="financial-details">
+                    <div class="detail-row">
+                        <span>Quote Price:</span>
+                        <strong class="amount-due">$${Number(request.quote_price).toFixed(2)}</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Service Address:</span>
+                        <span>${request.service_address_street}, ${request.service_address_city}, ${request.service_address_city} ${request.service_address_zip}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Service Type:</span>
+                        <span>${request.cleaning_type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Rooms:</span>
+                        <span>${request.rooms}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Start Time:</span>
+                        <span">${new Date(request.scheduled_start).toLocaleString()}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>End Time:</span>
+                        <span>${new Date(request.scheduled_end).toLocaleString()}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span>Response Date:</span>
+                        <span>${new Date(request.response_date).toLocaleString()}</span>
+                    </div>
+                </div>
+                ${request.quote_note ? `<p class="quote-note"><strong>Note from Anna:</strong> ${request.quote_note}</p>` : ''}
+            </div>
+            
+            <div class="card-actions action-group">
+                ${isActionNeeded ? 
+                    `<button onclick="acceptQuote(${request.request_id})" class="action-btn primary-btn">Accept</button>
+                     <button onclick="counterQuote(${request.quote_id})" class="action-btn secondary-btn">Counter</button>`
+                    : 
+                    // Accepted status shows a simple view button
+                    `<button onclick="viewServiceOrder(${request.request_id})" class="action-btn secondary-btn">View Order</button>`
+                }
+            </div>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// Function for the client to manage bills
+function renderClientBills(requestsData) {
+    // Flatten the requests array to get a single array of all bills
+    const allBills = requestsData
+        .filter(request => request.bills && request.bills.length > 0)
+        .flatMap(request => request.bills.map(bill => ({
+            ...bill,
+            requestId: request.request_id // Attach the parent request ID for context
+        })));
+
+    const container = document.getElementById('client-bills-list');
+    const sectionContainer = document.getElementById('client-bills-section');
+    
+    if (!container || !sectionContainer) return;
+
+    container.innerHTML = '';
+    sectionContainer.style.display = allBills.length > 0 ? 'block' : 'none';
+
+    allBills.forEach(bill => {
+        const isUnpaid = bill.bill_status === 'Unpaid';
+        const isPaid = bill.bill_status === 'Paid';
+        
+        const statusClass = isUnpaid ? 'status-tag-unpaid' : (isPaid ? 'status-tag-paid' : 'status-tag-disputed');
+
+        const item = document.createElement('div');
+        // 💡 Styling Fix: Added 'dark-card' to match Anna's UI
+        item.className = 'ui-card dark-card bill-item-card'; 
+
+        item.innerHTML = `
+            <div class="card-header">
+                <div class="meta-info">
+                    <span class="bill-label">Bill #${bill.bill_id}</span>
+                    <span class="request-label">Request #${bill.requestId}</span>
+                </div>
+                <span class="status-tag ${statusClass}">${bill.bill_status.toUpperCase()}</span>
+            </div>
+            
+            <div class="card-body"> 
+                <div class="financial-details">
+                    <div class="detail-row">
+                        <span>Amount Due:</span>
+                        <strong class="amount-due">$${Number(bill.bill_amount).toFixed(2)}</strong>
+                    </div>
+                    <div class="detail-row">
+                        <span>Due Date:</span>
+                        <span class="due-date">${new Date(bill.due_date).toLocaleDateString()}</span>
+                    </div>
+                </div>
+                ${bill.note ? `<p class="bill-note"><strong>Note:</strong> ${bill.note}</p>` : ''}
+            </div>
+
+            <div class="card-actions action-group">
+                ${isUnpaid ? 
+                    // Unpaid buttons use action-btn classes
+                    `<button onclick="openPayForm(${bill.bill_id})" class="action-btn primary-btn">Pay Now</button>
+                     <button onclick="disputeBill(${bill.bill_id})" class="action-btn secondary-btn">Dispute</button>` 
+                    : 
+                    // Paid/Disputed button uses view action
+                    // 💡 Button Fix: Corrected HTML for data attribute and used standard classes
+                    `<button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}" data-request-id="${bill.requestId}">
+                        View Service Bill
+                    </button>`
+                }
+            </div>
+        `;
+        
+        // 💡 Event Listener Fix: Attach listener for the View button if it exists
+        if (!isUnpaid) {
+             item.querySelector('.view-bill-btn')
+                 // Assuming viewServiceBill needs the request_id, similar to Anna's UI
+                 .addEventListener('click', () => viewServiceBill(bill.requestId));
+        }
+
+
+        container.appendChild(item);
+    });
+}
+
+// Open a Pay modal/form (Not a real credit card transaction)
+function openPayForm(billId) {
   // remove any existing modal
   const existing = document.getElementById('pay-form-modal');
   if (existing) existing.remove();
@@ -1509,7 +1617,7 @@ function openPayForm(billId, requestId) {
   document.body.insertAdjacentHTML('beforeend', formHTML);
 
   document.getElementById('pay-cancel-btn').addEventListener('click', closePayForm);
-  document.getElementById('pay-submit-btn').addEventListener('click', () => submitPay(billId, requestId));
+  document.getElementById('pay-submit-btn').addEventListener('click', () => payBill(billId));
 }
 
 function closePayForm() {
@@ -1517,108 +1625,39 @@ function closePayForm() {
   if (modal) modal.remove();
 }
 
-async function submitPay(billId) {
-    const name = document.getElementById('pay-name').value.trim();
-    const card = document.getElementById('pay-card').value.trim();
-    const exp = document.getElementById('pay-exp').value.trim();
-    const cvv = document.getElementById('pay-cvv').value.trim();
-    const username = localStorage.getItem('loggedInUser');
-
-    if (!name || !card || !exp || !cvv || !username) {
-        alert("Please fill out all payment fields.");
+async function payBill(billId) {
+    const currentUser = localStorage.getItem("loggedInUser");
+    if (!currentUser) {
+        alert("You must be logged in to pay a bill.");
         return;
     }
 
-    closePayForm();
-
     try {
-        const response = await fetch('/client/pay-bill', {
+        const res = await fetch('/payBill', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ billId, username })
+            body: JSON.stringify({ billId })
         });
-
-        const data = await response.json();
-
+        const data = await res.json();
+        
         if (data.success) {
-            alert("Payment successful! Reloading request list...");
-            await clientLoadRequests(username); 
+            alert(`Bill #${billId} paid successfully!`);
+            closePayForm();
+            loadClientDashboardData(currentUser);
         } else {
-            alert('Payment failed: ' + (data.error || 'Unknown error.'));
-            await clientLoadRequests(username);
+            alert(`Payment network error: ${data.error || "Unknown error"}`);
         }
-    } catch (error) {
-        console.error('Payment network error:', error);
-        alert('A network error occurred during payment.');
+    } catch (err) {
+        console.error("Payment error:", err);
+        alert("An error occurred during payment processing.");
     }
-}
-
-function renderBills(bills) {
-  const billsList = document.getElementById('bills-list');
-  if (!billsList) return;
-  billsList.innerHTML = '';
-
-  if (!bills || bills.length === 0) {
-    billsList.innerHTML = '<div>No bills found.</div>';
-    return;
-  }
-
-  bills.forEach(bill => {
-      const div = document.createElement('div');
-      div.className = 'bill-item';
-      const due = new Date(bill.due_date).toLocaleDateString();
-
-      // Determine buttons based on user type (Anna vs Client)
-      let actionButtons = '';
-      
-      // Clients can Pay or Dispute if unpaid
-      if (bill.bill_status !== 'Paid') {
-          actionButtons += `<button class="pay-bill-btn" data-id="${bill.bill_id}">Pay</button>`;
-          actionButtons += `<button class="dispute-bill-btn" data-id="${bill.bill_id}">Dispute</button>`;
-      }
-    });
-
-  billsList.querySelectorAll('.dispute-bill-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const billId = e.target.dataset.id;
-      await disputeBill(billId);
-    });
-  });
-
-  // Attach handlers for Anna's Revise button
-  billsList.querySelectorAll('.revise-bill-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-        const billId = e.target.dataset.id;
-        const oldAmount = e.target.dataset.amount;
-        await reviseBillUI(billId, oldAmount);
-    });
-  });
-}
-
-async function loadBills(username) {
-  if (!username) return;
-  try {
-    const res = await fetch(`/clientLoadRequests/${encodeURIComponent(username)}`);
-    const data = await res.json();
-    if (!data.success) return;
-    // collect all bills from all requests into a single array
-    const bills = [];
-    data.requests.forEach(req => {
-      if (req.bills && Array.isArray(req.bills)) {
-        req.bills.forEach(b => bills.push(b));
-      }
-    });
-    renderBills(bills);
-  } catch (err) {
-    console.error('Failed to load bills:', err);
-  }
 }
 
 async function disputeBill(billId) {
     const note = prompt("Please enter a note explaining your bill dispute:");
 
     if (!note || note.trim() === "") {
-        alert("Bill disputes requires a note.");
+        alert("Bill disputes require a note.");
         return;
     }
 
@@ -1635,8 +1674,7 @@ async function disputeBill(billId) {
         const data = await res.json();
         if (data.success) {
             alert('Dispute submitted.');
-            loadBills(username);
-            clientLoadRequests(username);
+            loadClientDashboardData(username);
         } else alert('Dispute error: ' + (data.error || 'Unknown'));
 
     } catch (err) {
@@ -1645,16 +1683,9 @@ async function disputeBill(billId) {
     }
 }
 
-// Accept the latest quote
+// Client accepts a quote
 function acceptQuote(requestId) {
-    // Replace buttons with "Accepted!" text
-    const requestDiv = document.getElementById(`client-request-${requestId}`);
-    const buttonsDiv = requestDiv.querySelector('.client-quote-buttons');
-    if (buttonsDiv) {
-        // Completely clear buttons and show only Accepted!
-        buttonsDiv.innerHTML = `<div style="color:green; font-weight:bold; margin-top:8px;">Accepted!</div>`;
-    }
-
+    const currentUser = localStorage.getItem("loggedInUser");
     // Notify server so Anna's dashboard knows this quote was accepted
     fetch('/client/accept-quote', {
         method: 'POST',
@@ -1663,22 +1694,31 @@ function acceptQuote(requestId) {
     })
     .then(res => res.json())
     .then(data => {
-        if (!data.success) {
+        if (data.success) {
+             alert('Quote accepted successfully!');
+             loadClientDashboardData(currentUser);
+        } else {
             console.error('Error accepting quote:', data.error);
+            alert('Error accepting quote: ' + (data.error || 'Unknown error.'));
         }
     })
-    .catch(err => console.error(err));
+    .catch(err => {
+        console.error("Error accepting quote:", err);
+        alert('A network error occurred while accepting the quote.');
+    });
 }
 
-function renegotiateQuote(quoteId) {
-    const note = prompt("Please enter a note explaining your counteroffer or request for renegotiation:");
+// Client counters a quote
+function counterQuote(quoteId) {
+    const currentUser = localStorage.getItem("loggedInUser");
+    const note = prompt("Please enter a note explaining your counter-offer or request for renegotiation:");
 
     if (!note || note.trim() === "") {
-        alert("Renegotiation requires a note.");
+        alert("Counter/Renegotiation requires a note.");
         return;
     }
 
-    fetch('/renegotiateQuote', { 
+    fetch('/counterQuote', { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -1689,70 +1729,66 @@ function renegotiateQuote(quoteId) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert('Renegotiation submitted. Status set to "countered."');
+            alert('Counter-offer submitted');
+            loadClientDashboardData(currentUser);
         } else {
-            alert("Error submitting renegotiation: " + (data.error || "Unknown error"));
+            alert("Error submitting counter-offer: " + (data.error || "Unknown error"));
         }
     })
-    .catch(err => console.error("Error submitting renegotiation:", err));
+    .catch(err => console.error("Error submitting counter-offer:", err));
 }
 
 // Function to allow Anna to revise a bill amount and add a note
-async function reviseBillUI(billId, oldAmount) {
-    const newAmount = prompt(`Enter new bill amount (Current: $${oldAmount}):`, oldAmount);
-    // Ensure the new amount is a valid number
-    if (newAmount === null || isNaN(Number(newAmount)) || Number(newAmount) <= 0) {
-        if (newAmount !== null) alert("Invalid amount entered. Revision cancelled.");
-        return; 
-    } 
-
-    const note = prompt("Enter a note for this revision (e.g., Discount applied):");
-    if (note === null) return; // Cancelled
-
+async function reviseBill(requestId) {
     try {
-        const res = await fetch('/reviseBill', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ billId, newAmount: Number(newAmount).toFixed(2), note })
-        });
-        
-        const data = await res.json();
-        
-        if (data.success) {
-            alert('Bill revised successfully.');
-            // Refresh Anna's dashboard view
-            fetch('http://localhost:5050/listServiceOrders')
-            .then(response => response.json())
-            .then(result => serviceOrdersList(result.data))
-            .catch(err => console.error(err));
-        } else {
-            alert('Revision error: ' + (data.error || 'Unknown'));
-        }
-    } catch (err) {
-        console.error(err);
-        alert('Failed to submit revision.');
-    }
-}
-
-// Fetches bill details for a request, then opens the Revision UI
-async function initiateBillRevision(requestId) {
-    try {
-        // Use your existing endpoint to get the bill details
-        const response = await fetch(`http://localhost:5050/getBill/${requestId}`);
+        // 1. FETCH CURRENT BILL DETAILS
+        const response = await fetch(`/getBill/${requestId}`);
         const data = await response.json();
 
-        if (!data.success) {
+        if (!data.success || !data.request || !data.request.bill_id) {
             alert("Could not find bill details. The bill may not exist yet.");
             return;
         }
 
-        const bill = data.request; // Contains bill_id and bill_amount
+        const bill = data.request;
+        const oldAmount = Number(bill.bill_amount).toFixed(2);
         
-        // Pass bill_id and current amount to the revision prompt
-        await reviseBillUI(bill.bill_id, bill.bill_amount);
+        // 2. GET NEW AMOUNT AND VALIDATE
+        const newAmountInput = prompt(`Enter new bill amount (Current: $${oldAmount}):`, oldAmount);
+        if (newAmountInput === null) return; // Prompt cancelled
+        
+        const newAmount = Number(newAmountInput);
+        if (isNaN(newAmount) || newAmount <= 0) {
+            alert("Invalid amount entered. Revision cancelled.");
+            return; 
+        } 
+        
+        // 3. GET REVISION NOTE
+        const note = prompt("Enter a note for this revision (e.g., Discount applied):");
+        if (note === null) return; // Prompt cancelled
+
+        // 4. SUBMIT REVISION
+        const res = await fetch('/reviseBill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                billId: bill.bill_id, // Use the fetched bill ID
+                newAmount: newAmount.toFixed(2), 
+                note 
+            })
+        });
+        
+        const revisionData = await res.json();
+        
+        if (revisionData.success) {
+            alert('Bill revised successfully.');
+            loadAnnaDashboardData(); 
+        } else {
+            alert('Revision error: ' + (revisionData.error || 'Unknown'));
+        }
 
     } catch (err) {
-        console.error("Error fetching bill for revision:", err);
-        alert("Failed to initiate revision. Check console for network errors if this persists.");
+        console.error("Error during bill revision process:", err);
+        alert('Failed to initiate or submit revision. Check console for details.');
     }
 }

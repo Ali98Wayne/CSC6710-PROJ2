@@ -66,14 +66,14 @@ app.post('/addQuote', async (req, res) => {
     const { requestId, quotePrice, scheduledStart, scheduledEnd, note, status } = req.body;
     const db = dbService.getDbServiceInstance();
     try {
-        const result = await db.upsertQuote(requestId, quotePrice, scheduledStart, scheduledEnd, note, status);
+        const result = await db.submitQuote(requestId, quotePrice, scheduledStart, scheduledEnd, note, status);
         res.json({ success: true, result });
     } catch(err) { 
         res.json({ success: false, error: err.message }); 
     }
 });
 
-app.post('/renegotiateQuote', async (req, res) => {
+app.post('/counterQuote', async (req, res) => {
     const { quoteId, note } = req.body; 
 
     if (!quoteId || !note) {
@@ -83,7 +83,7 @@ app.post('/renegotiateQuote', async (req, res) => {
     const db = dbService.getDbServiceInstance();
 
     try {
-        await db.renegotiateQuote(quoteId, note); 
+        await db.counterQuote(quoteId, note); 
         res.json({ success: true });
     } catch (err) {
         console.error(err);
@@ -150,22 +150,12 @@ app.post('/client/accept-quote', async (req, res) => {
     const db = dbService.getDbServiceInstance();
 
     try {
-        await db.acceptQuote(requestId, 'accepted');
+        await db.acceptQuote(requestId);
         res.json({ success: true });
     } catch (err) {
         console.error(err);
         res.json({ success: false, error: err.message });
     }
-});
-
-// Client submits a counter-note for negotiation
-app.post('/counterQuote', async (req, res) => {
-  const { requestId, clientId, note } = req.body;
-  const db = dbService.getDbServiceInstance();
-  try {
-    const result = await db.counterQuote(requestId, clientId, note);
-    res.json({ success: true, result });
-  } catch(err) { res.json({ success: false, error: err.message }); }
 });
 
 // Anna resubmits a quote
@@ -418,7 +408,7 @@ app.get('/generateServiceBill/:requestId', async (request, response) => {
 });
 
 // Fetch all client requests along with their quote/negotiation status
-app.get('/clientLoadRequests/:username', async (req, res) => {
+app.post('/clientLoadRequests/:username', async (req, res) => {
   const { username } = req.params;
   const db = dbService.getDbServiceInstance();
 
@@ -472,7 +462,7 @@ app.get('/getBills', async (req, res) => {
     }
 });
 
-app.post('/client/pay-bill', async (req, res) => {
+app.post('/payBill', async (req, res) => {
     const { billId } = req.body;
     if (!billId) return res.json({ success: false, error: 'Missing info' });
 

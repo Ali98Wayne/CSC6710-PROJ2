@@ -53,7 +53,7 @@ CREATE TABLE Quotes (
     scheduled_end DATETIME NULL,
     note TEXT,
     response_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status ENUM('pending','accepted','rejected','countered','canceled') DEFAULT 'pending',
+    status ENUM('pending','quoted','accepted','rejected','countered','canceled') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_responder FOREIGN KEY (client_id) REFERENCES Users(user_id)
