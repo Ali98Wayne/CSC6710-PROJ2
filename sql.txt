@@ -94,6 +94,7 @@ CREATE TABLE Bill_History (
     new_amount DECIMAL(10,2),
     bill_status ENUM('Paid', 'Unpaid', 'Disputed'),
     due_date DATE NOT NULL,
+    payment_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_history_bill FOREIGN KEY (bill_id) REFERENCES Bills(bill_id),
     CONSTRAINT fk_bill_history_responder FOREIGN KEY (client_id) REFERENCES Users(user_id)

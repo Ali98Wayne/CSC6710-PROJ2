@@ -738,190 +738,6 @@ function serviceOrdersList(data) {
     });
 }
 
-// Function to process a service request order corresponding to a service request
-async function viewServiceOrder(requestId) {
-  try {
-    // Fetch the request details
-    const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
-    const service_request_data = await get_service_response.json();
-
-    if (!service_request_data.success) {
-      alert("Failed to load service request details");
-      return;
-    }
-
-    const service_req = service_request_data.request;
-
-    // Fetch the user's details
-    const clientId = service_req.client_id;
-    const get_user_response = await fetch(`http://localhost:5050/getUser/${clientId}`);
-    const user_data = await get_user_response.json();
-
-    if (!user_data.success) {
-      alert("Failed to load user details");
-      return;
-    }
-
-    const user_req = user_data.request;
-
-    // Fetch quote history for a request id
-    const quoteHistoryRes = await fetch(`http://localhost:5050/getQuoteHistory/${requestId}`);
-    const quoteHistoryData = await quoteHistoryRes.json();
-    let quoteHistoryHTML = "";
-    if (quoteHistoryData.success && quoteHistoryData.history.length > 0)
-        quoteHistoryHTML = buildQuoteHistoryHTML(quoteHistoryData.history);
-
-    // Fetch the HTML Service Order template
-    const orderTemplateRes = await fetch("service_order.html");
-    let orderTemplate = await orderTemplateRes.text();
-
-    // Write order data to the order template
-    orderTemplate = orderTemplate
-      .replace("{{generated_date}}", new Date().toLocaleDateString())
-      .replace("{{request_id}}", service_req.request_id)
-      .replace("{{agreement_date}}", new Date(service_req.quote_accept_date).toLocaleString())
-      .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`) // There's 2 instances of {{client_name}}, so replaceAll is needed
-      .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
-      .replace("{{client_phone}}", user_req.phone)
-      .replace("{{client_email}}", user_req.email)
-      .replace("{{service_address}}", `${service_req.service_address_street}, ${service_req.service_address_city}, ${service_req.service_address_state} ${service_req.service_address_zip}`)
-      .replace("{{cleaning_type}}", service_req.cleaning_type)
-      .replace("{{rooms}}", service_req.rooms)
-      .replace("{{preferred_date}}", new Date(service_req.preferred_date).toLocaleString())
-      .replace("{{budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
-      .replace("{{notes_section}}", service_req.notes ? `<div class="section-title">Notes</div><p>${service_req.notes}</p>` : "")
-      .replace("{{photos_section}}", service_req.photo_urls ? `<div class="section-title">Photo URLs</div><ul>${JSON.parse(service_req.photo_urls).map(u=>`<li>${u}</li>`).join('')}</ul>` : "")
-      .replace("{{quote_history_section}}", quoteHistoryHTML);
-      
-    // Open the serivce order in a new tab
-    const newTab = window.open("", "_blank");
-    newTab.document.write(orderTemplate);
-    newTab.document.close();
-  } catch (err) {
-    alert(`Error loading service request: ${err.message}`);
-  }
-}
-
-// Function to process a service bill corresponding to a service request
-async function viewServiceBill(requestId) {
-  try {
-    const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
-    const service_request_data = await get_service_response.json();
-
-    if (!service_request_data.success) {
-      alert("Failed to load service request details");
-      return;
-    }
-
-    const service_req = service_request_data.request;
-
-    const clientId = service_req.client_id;
-    const get_user_response = await fetch(`http://localhost:5050/getUser/${clientId}`);
-    const user_data = await get_user_response.json();
-
-    if (!user_data.success) {
-      alert("Failed to load user details");
-      return;
-    }
-
-    const user_req = user_data.request;
-
-    // Fetch bill data
-    const billRes = await fetch(`http://localhost:5050/getBill/${requestId}`);
-    const billData = await billRes.json();
-
-    if (!billData.success) {
-      alert("Failed to load bill details.");
-      return;
-    }
-
-    const service_bill = billData.request;
-
-    // Fetch Bill History
-    const historyRes = await fetch(`http://localhost:5050/getBillHistory/${service_bill.bill_id}`);
-    const historyData = await historyRes.json();
-
-    let historyHTML = "";
-    if (historyData.success && historyData.history.length > 0) historyHTML = buildBillHistoryHTML(historyData.history);
-
-    // Fetch the HTML Service Bill template
-    const billTemplateRes = await fetch("service_bill.html");
-    let billTemplate = await billTemplateRes.text();
-
-    // Write bill data to the bill template
-    billTemplate = billTemplate
-      .replace("{{generated_date}}", new Date().toLocaleDateString())
-      .replace("{{bill_id}}", service_bill.bill_id)
-      .replace("{{request_id}}", service_bill.request_id)
-      .replace("{{bill_status}}", service_bill.bill_status)
-      .replace("{{bill_amount}}", `$${Number(service_bill.bill_amount).toFixed(2)}`)
-      .replace("{{due_date}}", new Date(service_bill.due_date).toLocaleDateString())
-      .replace("{{payment_date}}", service_bill.payment_date || "Not Paid")
-      .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`)
-      .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
-      .replace("{{client_phone}}", user_req.phone)
-      .replace("{{client_email}}", user_req.email)
-      .replace("{{service_address}}",
-        `${service_req.service_address_street}, ${service_req.service_address_city}, ${service_req.service_address_state} ${service_req.service_address_zip}`)
-      .replace("{{cleaning_type}}", service_req.cleaning_type)
-      .replace("{{rooms}}", service_req.rooms)
-      .replace("{{scheduled_date}}", new Date(service_req.preferred_date).toLocaleString())
-      .replace("{{proposed_budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
-      .replace("{{bill_notes_section}}", service_bill.note ? `<div class="section-title">Bill Notes</div><p>${service_bill.note}</p>` : "")
-      .replace("{{bill_history_section}}", historyHTML);
-
-    // Open the service bill in a new tab
-    const newTab = window.open("", "_blank");
-    newTab.document.write(billTemplate);
-    newTab.document.close();
-
-  } catch (err) {
-    alert(`Error loading service bill: ${err.message}`);
-  }
-}
-
-// Converts Quote History rows from the database to usable HTML when viewing a service order
-function buildQuoteHistoryHTML(historyEntries) {
-    let html = `<div class="section-title">Quote History</div><div class="history-container">`;
-
-    historyEntries.forEach(entry => {
-        html += `
-            <div class="history-entry">
-                <div><strong>Quote Responder: ${entry.responder_type}</strong> – ${new Date(entry.created_at).toLocaleString()}</div>
-                <div><strong>Quote Price:</strong> $${Number(entry.quote_price).toFixed(2)}</div>
-                <div><strong>Scheduled Start:</strong> ${new Date(entry.scheduled_start).toLocaleString()}</div>
-                <div><strong>Scheduled End:</strong> ${new Date(entry.scheduled_end).toLocaleString()}</div>
-                <div><strong>Status:</strong> ${entry.status}</div>
-                <div><strong>Note:</strong> ${entry.note || "—"}</div>
-            </div>
-            <br>
-        `;
-    });
-
-    html += `</div>`;
-    return html;
-}
-
-// Converts Bill History rows from the database to usable HTML when viewing a bill
-function buildBillHistoryHTML(historyEntries) {
-  let html = `<div class="section-title">Bill History</div><div class="history-container">`;
-
-  historyEntries.forEach(entry => {
-    html += `
-      <div class="history-entry">
-        <div><strong>Responder: ${entry.responder_type}</strong> – ${new Date(entry.created_at).toLocaleString()}</div>
-        <div><strong>New Amount:</strong> $${Number(entry.new_amount).toFixed(2)}</div>
-        <div><strong>Bill Status:</strong> ${entry.bill_status}</div>
-        <div><strong>Note:</strong> ${entry.note || "—"}</div>
-      </div>
-      <br>
-    `;
-  });
-
-  html += `</div>`;
-  return html;
-}
-
 // Function for Anna Quotes view to pre-fill Start & End DATETIME type fields
 function formatDateTimeLocal(sqlDateTimeString) {
     if (!sqlDateTimeString) return '';
@@ -1185,6 +1001,37 @@ function renderAnnaBillUI(requests) {
     });
 }
 
+// Function for Anna to reject a service request
+function rejectRequest(requestId) {
+    const note = prompt("Please enter a note explaining the request rejection:");
+
+    if (note === null) return;
+
+    if (note.trim().length === 0) {
+        alert("Request rejection requires a note.");
+        return;
+    }
+
+    fetch('/rejectRequest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            requestId,
+            note: note
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Request successfully rejected.');
+            loadAnnaDashboardData();
+        } else {
+            alert("Error rejecting request: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error rejecting request:", err));
+}
+
 // Function for Anna to submit a quote
 function submitQuote(requestId) {
     const price = document.getElementById(`request-price-${requestId}`).value;
@@ -1262,37 +1109,6 @@ function resubmitQuote(quoteId) {
     .catch(err => console.error("Error resubmitting quote:", err));
 }
 
-// Function for Anna to reject a service request
-function rejectRequest(requestId) {
-    const note = prompt("Please enter a note explaining the request rejection:");
-
-    if (note === null) return;
-
-    if (note.trim().length === 0) {
-        alert("Request rejection requires a note.");
-        return;
-    }
-
-    fetch('/rejectRequest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            requestId,
-            note: note
-        })
-    })
-    .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-              alert('Request successfully rejected.');
-              loadAnnaDashboardData();
-            } else {
-                alert("Error rejecting request: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error rejecting request:", err));
-    }
-
 // Function for Anna to reject a quote
 function rejectQuote(quoteId) {
     const note = prompt("Enter a note for this quote rejection:");
@@ -1354,41 +1170,55 @@ function annaCancelQuote(quoteId) {
     .catch(err => console.error("Error cancelling quote:", err));
 }
 
-// Function for the client to cancel a quote
-function clientCancelQuote(quoteId) {
-    const note = prompt("Enter a note for canceling this quote:");
-    if (note === null) return;
+// Function for Anna to revise the bill amount and add a note
+async function reviseBill(requestId) {
+    try {
+        const response = await fetch(`/getBill/${requestId}`);
+        const data = await response.json();
 
-    const currentUser = localStorage.getItem("loggedInUser");
-    if (!currentUser) {
-        alert("You must be logged in to pay a bill.");
-        return;
-    }
-
-    if (!note.trim()) {
-        alert("Please enter a note before rejecting.");
-        return;
-    }
-
-    fetch('/cancelQuote', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            quoteId: quoteId,
-            responderType: 'Client',
-            note: note
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert('Quote successfully cancelled.');
-            loadClientDashboardData(currentUser);
-        } else {
-            alert("Error cancelling quote: " + (data.error || "Unknown error"));
+        if (!data.success || !data.request || !data.request.bill_id) {
+            alert("Could not find bill details. The bill may not exist yet.");
+            return;
         }
-    })
-    .catch(err => console.error("Error cancelling quote:", err));
+
+        const bill = data.request;
+        const oldAmount = Number(bill.bill_amount).toFixed(2);
+        
+        const newAmountInput = prompt(`Enter new bill amount (Current: $${oldAmount}):`, oldAmount);
+        if (newAmountInput === null) return;
+        
+        const newAmount = Number(newAmountInput);
+        if (isNaN(newAmount) || newAmount <= 0) {
+            alert("Invalid amount entered. Revision cancelled.");
+            return; 
+        } 
+        
+        const note = prompt("Enter a note for this revision (e.g., Discount applied):");
+        if (note === null) return;
+
+        const res = await fetch('/reviseBill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                billId: bill.bill_id,
+                newAmount: newAmount.toFixed(2), 
+                note 
+            })
+        });
+        
+        const revisionData = await res.json();
+        
+        if (revisionData.success) {
+            alert('Bill revised successfully.');
+            loadAnnaDashboardData(); 
+        } else {
+            alert('Revision error: ' + (revisionData.error || 'Unknown'));
+        }
+
+    } catch (err) {
+        console.error("Error during bill revision process:", err);
+        alert('Failed to initiate or submit revision. Check console for details.');
+    }
 }
 
 // Function for client to see their rejected requests
@@ -1611,121 +1441,41 @@ function renderClientBills(requestsData) {
     });
 }
 
-// Open a Pay modal/form (Not a real credit card transaction)
-function openPayForm(billId) {
-  // remove any existing modal
-  const existing = document.getElementById('pay-form-modal');
-  if (existing) existing.remove();
+// Function for the client to cancel a quote
+function clientCancelQuote(quoteId) {
+    const note = prompt("Enter a note for canceling this quote:");
+    if (note === null) return;
 
-  const formHTML = `
-    <div id="pay-form-modal" style="
-      position: fixed; top:0; left:0; width:100%; height:100%;
-      background: rgba(0,0,0,0.2); 
-      display:flex; align-items:center; justify-content:center; z-index:9999;
-    ">
-      <div style="
-        background: black;
-        padding: 18px; 
-        border-radius: 8px; 
-        min-width: 320px; 
-        border: 3px solid #007BFF;
-        box-shadow: 0px 0px 15px rgba(0,0,0,0.2);
-      ">
-        <h3 style="margin-top:0; color:#007BFF; text-align:center;">
-          Pay Bill ID: ${billId}
-        </h3>
-
-        <div style="text-align:left;">
-          <label>Name on Card:</label><br>
-          <input type="text" id="pay-name" style="width:100%;"><br><br>
-
-          <label>Card Number:</label><br>
-          <input type="text" id="pay-card" maxlength="19" style="width:100%;"><br><br>
-
-          <label>Expiry (MM/YY):</label><br>
-          <input type="text" id="pay-exp" maxlength="5" placeholder="MM/YY" style="width:100%;"><br><br>
-
-          <label>CVV:</label><br>
-          <input type="text" id="pay-cvv" maxlength="4" style="width:100%;"><br><br>
-        </div>
-
-        <div style="text-align:right;">
-          <button id="pay-submit-btn">Pay</button>
-          <button id="pay-cancel-btn">Cancel</button>
-        </div>
-      </div>
-    </div>
-  `;
-  document.body.insertAdjacentHTML('beforeend', formHTML);
-
-  document.getElementById('pay-cancel-btn').addEventListener('click', closePayForm);
-  document.getElementById('pay-submit-btn').addEventListener('click', () => payBill(billId));
-}
-
-function closePayForm() {
-  const modal = document.getElementById('pay-form-modal');
-  if (modal) modal.remove();
-}
-
-async function payBill(billId) {
     const currentUser = localStorage.getItem("loggedInUser");
     if (!currentUser) {
         alert("You must be logged in to pay a bill.");
         return;
     }
 
-    try {
-        const res = await fetch('/payBill', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ billId })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-            alert(`Bill #${billId} paid successfully!`);
-            closePayForm();
-            loadClientDashboardData(currentUser);
-        } else {
-            alert(`Payment network error: ${data.error || "Unknown error"}`);
-        }
-    } catch (err) {
-        console.error("Payment error:", err);
-        alert("An error occurred during payment processing.");
-    }
-}
-
-// Function for the client to dispute a bill
-async function disputeBill(billId) {
-    const note = prompt("Please enter a note explaining your bill dispute:");
-
-    if (note === null) return; // Can exit out of the prompt without receiving another alert
-
-    if (note.trim().length === 0) {
-        alert("Bill disputes require a note.");
+    if (!note.trim()) {
+        alert("Please enter a note before rejecting.");
         return;
     }
 
-    const username = localStorage.getItem('loggedInUser');
-    if (!username) { alert('Not logged in'); return; }
-    
-    try {
-        const res = await fetch('/client/dispute-bill', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ billId, note })
-        });
-
-        const data = await res.json();
+    fetch('/cancelQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quoteId: quoteId,
+            responderType: 'Client',
+            note: note
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
         if (data.success) {
-            alert('Dispute submitted.');
-            loadClientDashboardData(username);
-        } else alert('Dispute error: ' + (data.error || 'Unknown'));
-
-    } catch (err) {
-        console.error(err);
-        alert('Failed to submit dispute.');
-    }
+            alert('Quote successfully cancelled.');
+            loadClientDashboardData(currentUser);
+        } else {
+            alert("Error cancelling quote: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error cancelling quote:", err));
 }
 
 // Function for the client to accept a quote
@@ -1785,53 +1535,304 @@ function counterQuote(quoteId) {
     .catch(err => console.error("Error submitting counter-offer:", err));
 }
 
-// Function for Anna to revise the bill amount and add a note
-async function reviseBill(requestId) {
+// Function for the client to dispute a bill
+async function disputeBill(billId) {
+    const note = prompt("Please enter a note explaining your bill dispute:");
+
+    if (note === null) return; // Can exit out of the prompt without receiving another alert
+
+    if (note.trim().length === 0) {
+        alert("Bill disputes require a note.");
+        return;
+    }
+
+    const username = localStorage.getItem('loggedInUser');
+    if (!username) { alert('Not logged in'); return; }
+    
     try {
-        const response = await fetch(`/getBill/${requestId}`);
-        const data = await response.json();
-
-        if (!data.success || !data.request || !data.request.bill_id) {
-            alert("Could not find bill details. The bill may not exist yet.");
-            return;
-        }
-
-        const bill = data.request;
-        const oldAmount = Number(bill.bill_amount).toFixed(2);
-        
-        const newAmountInput = prompt(`Enter new bill amount (Current: $${oldAmount}):`, oldAmount);
-        if (newAmountInput === null) return;
-        
-        const newAmount = Number(newAmountInput);
-        if (isNaN(newAmount) || newAmount <= 0) {
-            alert("Invalid amount entered. Revision cancelled.");
-            return; 
-        } 
-        
-        const note = prompt("Enter a note for this revision (e.g., Discount applied):");
-        if (note === null) return;
-
-        const res = await fetch('/reviseBill', {
+        const res = await fetch('/client/dispute-bill', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                billId: bill.bill_id,
-                newAmount: newAmount.toFixed(2), 
-                note 
-            })
+            body: JSON.stringify({ billId, note })
         });
-        
-        const revisionData = await res.json();
-        
-        if (revisionData.success) {
-            alert('Bill revised successfully.');
-            loadAnnaDashboardData(); 
-        } else {
-            alert('Revision error: ' + (revisionData.error || 'Unknown'));
-        }
+
+        const data = await res.json();
+        if (data.success) {
+            alert('Dispute submitted.');
+            loadClientDashboardData(username);
+        } else alert('Dispute error: ' + (data.error || 'Unknown'));
 
     } catch (err) {
-        console.error("Error during bill revision process:", err);
-        alert('Failed to initiate or submit revision. Check console for details.');
+        console.error(err);
+        alert('Failed to submit dispute.');
     }
+}
+
+// Open a Pay modal/form (Not a real credit card transaction)
+function openPayForm(billId) {
+  // remove any existing modal
+  const existing = document.getElementById('pay-form-modal');
+  if (existing) existing.remove();
+
+  const formHTML = `
+    <div id="pay-form-modal" style="
+      position: fixed; top:0; left:0; width:100%; height:100%;
+      background: rgba(0,0,0,0.2); 
+      display:flex; align-items:center; justify-content:center; z-index:9999;
+    ">
+      <div style="
+        background: black;
+        padding: 18px; 
+        border-radius: 8px; 
+        min-width: 320px; 
+        border: 3px solid #007BFF;
+        box-shadow: 0px 0px 15px rgba(0,0,0,0.2);
+      ">
+        <h3 style="margin-top:0; color:#007BFF; text-align:center;">
+          Pay Bill ID: ${billId}
+        </h3>
+
+        <div style="text-align:left;">
+          <label>Name on Card:</label><br>
+          <input type="text" id="pay-name" style="width:100%;"><br><br>
+
+          <label>Card Number:</label><br>
+          <input type="text" id="pay-card" maxlength="19" style="width:100%;"><br><br>
+
+          <label>Expiry (MM/YY):</label><br>
+          <input type="text" id="pay-exp" maxlength="5" placeholder="MM/YY" style="width:100%;"><br><br>
+
+          <label>CVV:</label><br>
+          <input type="text" id="pay-cvv" maxlength="4" style="width:100%;"><br><br>
+        </div>
+
+        <div style="text-align:right;">
+          <button id="pay-submit-btn">Pay</button>
+          <button id="pay-cancel-btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', formHTML);
+
+  document.getElementById('pay-cancel-btn').addEventListener('click', closePayForm);
+  document.getElementById('pay-submit-btn').addEventListener('click', () => payBill(billId));
+}
+
+function closePayForm() {
+  const modal = document.getElementById('pay-form-modal');
+  if (modal) modal.remove();
+}
+
+// Function for client to pay a bill
+async function payBill(billId) {
+    const currentUser = localStorage.getItem("loggedInUser");
+    if (!currentUser) {
+        alert("You must be logged in to pay a bill.");
+        return;
+    }
+
+    try {
+        const res = await fetch('/payBill', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ billId })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            alert(`Bill #${billId} paid successfully!`);
+            closePayForm();
+            loadClientDashboardData(currentUser);
+        } else {
+            alert(`Payment network error: ${data.error || "Unknown error"}`);
+        }
+    } catch (err) {
+        console.error("Payment error:", err);
+        alert("An error occurred during payment processing.");
+    }
+}
+
+// Function to process a service request order corresponding to a service request
+async function viewServiceOrder(requestId) {
+  try {
+    // Fetch the request details
+    const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
+    const service_request_data = await get_service_response.json();
+
+    if (!service_request_data.success) {
+      alert("Failed to load service request details");
+      return;
+    }
+
+    const service_req = service_request_data.request;
+
+    // Fetch the user's details
+    const clientId = service_req.client_id;
+    const get_user_response = await fetch(`http://localhost:5050/getUser/${clientId}`);
+    const user_data = await get_user_response.json();
+
+    if (!user_data.success) {
+      alert("Failed to load user details");
+      return;
+    }
+
+    const user_req = user_data.request;
+
+    // Fetch quote history for a request id
+    const quoteHistoryRes = await fetch(`http://localhost:5050/getQuoteHistory/${requestId}`);
+    const quoteHistoryData = await quoteHistoryRes.json();
+    let quoteHistoryHTML = "";
+    if (quoteHistoryData.success && quoteHistoryData.history.length > 0)
+        quoteHistoryHTML = buildQuoteHistoryHTML(quoteHistoryData.history);
+
+    // Fetch the HTML Service Order template
+    const orderTemplateRes = await fetch("service_order.html");
+    let orderTemplate = await orderTemplateRes.text();
+
+    // Write order data to the order template
+    orderTemplate = orderTemplate
+      .replace("{{generated_date}}", new Date().toLocaleDateString())
+      .replace("{{request_id}}", service_req.request_id)
+      .replace("{{agreement_date}}", new Date(service_req.quote_accept_date).toLocaleString())
+      .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`) // There's 2 instances of {{client_name}}, so replaceAll is needed
+      .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
+      .replace("{{client_phone}}", user_req.phone)
+      .replace("{{client_email}}", user_req.email)
+      .replace("{{service_address}}", `${service_req.service_address_street}, ${service_req.service_address_city}, ${service_req.service_address_state} ${service_req.service_address_zip}`)
+      .replace("{{cleaning_type}}", service_req.cleaning_type)
+      .replace("{{rooms}}", service_req.rooms)
+      .replace("{{preferred_date}}", new Date(service_req.preferred_date).toLocaleString())
+      .replace("{{budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
+      .replace("{{notes_section}}", service_req.notes ? `<div class="section-title">Notes</div><p>${service_req.notes}</p>` : "")
+      .replace("{{photos_section}}", service_req.photo_urls ? `<div class="section-title">Photo URLs</div><ul>${JSON.parse(service_req.photo_urls).map(u=>`<li>${u}</li>`).join('')}</ul>` : "")
+      .replace("{{quote_history_section}}", quoteHistoryHTML);
+      
+    // Open the serivce order in a new tab
+    const newTab = window.open("", "_blank");
+    newTab.document.write(orderTemplate);
+    newTab.document.close();
+  } catch (err) {
+    alert(`Error loading service request: ${err.message}`);
+  }
+}
+
+// Function to process a service bill corresponding to a service request
+async function viewServiceBill(requestId) {
+  try {
+    const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
+    const service_request_data = await get_service_response.json();
+
+    if (!service_request_data.success) {
+      alert("Failed to load service request details");
+      return;
+    }
+
+    const service_req = service_request_data.request;
+
+    const clientId = service_req.client_id;
+    const get_user_response = await fetch(`http://localhost:5050/getUser/${clientId}`);
+    const user_data = await get_user_response.json();
+
+    if (!user_data.success) {
+      alert("Failed to load user details");
+      return;
+    }
+
+    const user_req = user_data.request;
+
+    // Fetch bill data
+    const billRes = await fetch(`http://localhost:5050/getBill/${requestId}`);
+    const billData = await billRes.json();
+
+    if (!billData.success) {
+      alert("Failed to load bill details.");
+      return;
+    }
+
+    const service_bill = billData.request;
+
+    // Fetch Bill History
+    const historyRes = await fetch(`http://localhost:5050/getBillHistory/${service_bill.bill_id}`);
+    const historyData = await historyRes.json();
+
+    let historyHTML = "";
+    if (historyData.success && historyData.history.length > 0) historyHTML = buildBillHistoryHTML(historyData.history);
+
+    // Fetch the HTML Service Bill template
+    const billTemplateRes = await fetch("service_bill.html");
+    let billTemplate = await billTemplateRes.text();
+
+    // Write bill data to the bill template
+    billTemplate = billTemplate
+      .replace("{{generated_date}}", new Date().toLocaleDateString())
+      .replace("{{bill_id}}", service_bill.bill_id)
+      .replace("{{request_id}}", service_bill.request_id)
+      .replace("{{bill_status}}", service_bill.bill_status)
+      .replace("{{bill_amount}}", `$${Number(service_bill.bill_amount).toFixed(2)}`)
+      .replace("{{due_date}}", new Date(service_bill.due_date).toLocaleDateString())
+      .replace("{{payment_date}}", service_bill.payment_date || "Not Paid")
+      .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`)
+      .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
+      .replace("{{client_phone}}", user_req.phone)
+      .replace("{{client_email}}", user_req.email)
+      .replace("{{service_address}}",
+        `${service_req.service_address_street}, ${service_req.service_address_city}, ${service_req.service_address_state} ${service_req.service_address_zip}`)
+      .replace("{{cleaning_type}}", service_req.cleaning_type)
+      .replace("{{rooms}}", service_req.rooms)
+      .replace("{{scheduled_date}}", new Date(service_req.preferred_date).toLocaleString())
+      .replace("{{proposed_budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
+      .replace("{{bill_notes_section}}", service_bill.note ? `<div class="section-title">Bill Notes</div><p>${service_bill.note}</p>` : "")
+      .replace("{{bill_history_section}}", historyHTML);
+
+    // Open the service bill in a new tab
+    const newTab = window.open("", "_blank");
+    newTab.document.write(billTemplate);
+    newTab.document.close();
+
+  } catch (err) {
+    alert(`Error loading service bill: ${err.message}`);
+  }
+}
+
+// Converts Quote History rows from the database to usable HTML when viewing a service order
+function buildQuoteHistoryHTML(historyEntries) {
+    let html = `<div class="section-title">Quote History</div><div class="history-container">`;
+
+    historyEntries.forEach(entry => {
+        html += `
+            <div class="history-entry">
+                <div><strong>Quote Responder: ${entry.responder_type}</strong> – ${new Date(entry.created_at).toLocaleString()}</div>
+                <div><strong>Quote Price:</strong> $${Number(entry.quote_price).toFixed(2)}</div>
+                <div><strong>Scheduled Start:</strong> ${new Date(entry.scheduled_start).toLocaleString()}</div>
+                <div><strong>Scheduled End:</strong> ${new Date(entry.scheduled_end).toLocaleString()}</div>
+                <div><strong>Status:</strong> ${entry.status}</div>
+                <div><strong>Note:</strong> ${entry.note || "—"}</div>
+            </div>
+            <br>
+        `;
+    });
+
+    html += `</div>`;
+    return html;
+}
+
+// Converts Bill History rows from the database to usable HTML when viewing a bill
+function buildBillHistoryHTML(historyEntries) {
+  let html = `<div class="section-title">Bill History</div><div class="history-container">`;
+
+  historyEntries.forEach(entry => {
+    html += `
+      <div class="history-entry">
+        <div><strong>Responder: ${entry.responder_type}</strong> – ${new Date(entry.created_at).toLocaleString()}</div>
+        <div><strong>New Amount:</strong> $${Number(entry.new_amount).toFixed(2)}</div>
+        <div><strong>Bill Status:</strong> ${entry.bill_status}</div>
+        <div><strong>Note:</strong> ${entry.note || "—"}</div>
+      </div>
+      <br>
+    `;
+  });
+
+  html += `</div>`;
+  return html;
 }
