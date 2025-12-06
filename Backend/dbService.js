@@ -406,8 +406,8 @@ class DbService{
     try {
         const response = await new Promise((resolve, reject) => {
             const query = `
-                SELECT b.bill_id, b.request_id, b.client_id, b.bill_amount, b.bill_status, b.due_date, b.note,
-                    u.first_name, u.last_name, u.username
+                SELECT b.bill_id, b.request_id, b.client_id, b.bill_amount, b.bill_status, b.due_date, b.payment_date, 
+                    b.note, u.first_name, u.last_name, u.username
                 FROM Bills b
                 JOIN Users u ON b.client_id = u.user_id
                 ORDER BY 
@@ -686,7 +686,7 @@ class DbService{
             // Attach bills for each request
             for (let req of requests) {
                 const bills = await new Promise((resolve, reject) => {
-                    const q = `SELECT bill_id, bill_amount, bill_status, due_date, note 
+                    const q = `SELECT bill_id, bill_amount, bill_status, due_date, payment_date, note 
                             FROM Bills WHERE request_id = ?`;
                     connection.query(q, [req.request_id], (err, results) => {
                     if (err) reject(err);

@@ -931,7 +931,7 @@ function renderAnnaBillUI(requests) {
     container.innerHTML = ''; 
 
     requests.forEach(bill => {
-        const date = new Date(bill.due_date).toLocaleDateString();
+        const due_date = new Date(bill.due_date).toLocaleDateString();
         const amount = Number(bill.bill_amount).toFixed(2);
         const status = bill.bill_status.toLowerCase();
         
@@ -948,6 +948,18 @@ function renderAnnaBillUI(requests) {
         }
 
         const showReviseButton = status !== 'paid';
+        
+        let paymentDateRow = '';
+        if (status === 'paid' && bill.payment_date) {
+            const paidDate = new Date(bill.payment_date).toLocaleDateString();
+            
+            paymentDateRow = `
+                <div class="detail-row paid-date-row">
+                    <span>Paid On:</span>
+                    <strong class="paid-date">${paidDate}</strong>
+                </div>
+            `;
+        }
 
         const billCard = document.createElement('div');
         billCard.className = 'ui-card dark-card bill-item-card'; 
@@ -972,10 +984,11 @@ function renderAnnaBillUI(requests) {
                     </div>
                     <div class="detail-row">
                         <span>Due Date:</span>
-                        <span class="due-date">${date}</span>
+                        <span class="due-date">${due_date}</span>
                     </div>
-                </div>
-                ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
+                    
+                    ${paymentDateRow} </div>
+                    ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
             </div>
 
             <div class="card-actions action-group"> 
@@ -1392,6 +1405,18 @@ function renderClientBills(requestsData) {
         
         const statusClass = isUnpaid ? 'status-tag-unpaid' : (isPaid ? 'status-tag-paid' : 'status-tag-disputed');
 
+        let paymentDateRow = '';
+        if (bill.bill_status === 'Paid' && bill.payment_date) {
+            const paidDate = new Date(bill.payment_date).toLocaleDateString();
+            
+            paymentDateRow = `
+                <div class="detail-row paid-date-row">
+                    <span>Paid On:</span>
+                    <strong class="paid-date">${paidDate}</strong>
+                </div>
+            `;
+        }
+
         const item = document.createElement('div');
 
         item.className = 'ui-card dark-card bill-item-card'; 
@@ -1415,6 +1440,7 @@ function renderClientBills(requestsData) {
                         <span>Due Date:</span>
                         <span class="due-date">${new Date(bill.due_date).toLocaleDateString()}</span>
                     </div>
+                    ${paymentDateRow}
                 </div>
                 ${bill.note ? `<p class="bill-note"><strong>Note:</strong> ${bill.note}</p>` : ''}
             </div>
@@ -1425,8 +1451,7 @@ function renderClientBills(requestsData) {
                      <button onclick="disputeBill(${bill.bill_id})" class="action-btn secondary-btn">Dispute</button>` 
                     : 
                     `<button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}" data-request-id="${bill.requestId}">
-                        View Service Bill
-                    </button>`
+                        View Service Bill</button>`
                 }
             </div>
         `;
@@ -1435,7 +1460,6 @@ function renderClientBills(requestsData) {
              item.querySelector('.view-bill-btn')
                  .addEventListener('click', () => viewServiceBill(bill.requestId));
         }
-
 
         container.appendChild(item);
     });
