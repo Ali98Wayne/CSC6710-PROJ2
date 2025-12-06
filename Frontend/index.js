@@ -31,7 +31,7 @@ function loadAnnaDashboardData() {
     .then(data => {
         renderAnnaRequestUI(data.requests);
     });
-    // Reload Pending Quotes (Countered by Client)
+    // Reload Pending Quotes
     fetch('/pendingQuotes')
     .then(res => res.json())
     .then(data => {
@@ -166,9 +166,8 @@ document.addEventListener("DOMContentLoaded", function() {
         e.target.value = formattedInput;
     });
 
-    // // Apply dashes to the credit card field based on input length
     document.getElementById('signup-creditcard').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
+        let input = e.target.value.replace(/\D/g, '');
         let formattedInput = '';
 
         if (input.length > 0) {
@@ -188,30 +187,30 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     document.getElementById('signup-creditcard-year').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
-        if (input.length > 4) input = input.substring(0, 4); // Limit to 4 digits
+        let input = e.target.value.replace(/\D/g, '');
+        if (input.length > 4) input = input.substring(0, 4);
         e.target.value = input;
     });
 
     document.getElementById('signup-creditcard-cvv').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
-        if (input.length > 4) input = input.substring(0, 4); // Limit to 4 digits 
+        let input = e.target.value.replace(/\D/g, '');
+        if (input.length > 4) input = input.substring(0, 4);
         e.target.value = input;
     });
 
     document.getElementById('service-address-zip').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
-        if (input.length > 5) input = input.substring(0, 5); // Limit to 5 digits
+        let input = e.target.value.replace(/\D/g, '');
+        if (input.length > 5) input = input.substring(0, 5);
         e.target.value = input;
     });
 
     document.getElementById('room-amount').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
+        let input = e.target.value.replace(/\D/g, '');
         e.target.value = input;
     });
 
     document.getElementById('proposed-budget').addEventListener('input', function(e) {
-        let input = e.target.value.replace(/\D/g, ''); // Remove all non-digit characters
+        let input = e.target.value.replace(/\D/g, '');
         e.target.value = input;
     });
 
@@ -463,6 +462,7 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 });
 
+// Configuration for search queries & what columns to display in a table
 const queryConfigs = [
     { 
         id: 'most-service-orders-btn', 
@@ -475,7 +475,7 @@ const queryConfigs = [
         endpoint: '/monthQuotes', 
         columns: ['request_id', 'client_id', 'username', 'quote_accept_date'],
         error: "Month Quotes search error",
-        // Special handler to grab the month value from the input field
+        // Getting month value from the monthQuotes input field
         getParams: () => ({ month: document.querySelector('#monthQuotes').value })
     },
     { 
@@ -516,11 +516,11 @@ const queryConfigs = [
     }
 ];
 
-// --- NEW CENTRALIZED SEARCH HANDLER FUNCTION ---
+// Handles the search query URL & sending the config to the searchResultsTable
 function handleSearchQuery(config) {
     let url = `http://localhost:5050${config.endpoint}`;
     
-    // Add parameters for dynamic searches (like month)
+    // Add parameters for dynamic searches (ex. month)
     if (config.getParams) {
         const params = config.getParams();
         const queryString = new URLSearchParams(params).toString();
@@ -533,8 +533,7 @@ function handleSearchQuery(config) {
     .catch(err => console.error(`${config.error}:`, err));
 }
 
-// --- APPLY EVENT LISTENERS IN A LOOP ---
-// This runs once when the DOM content is loaded
+// Search query event listeners
 queryConfigs.forEach(config => {
     const button = document.querySelector(`#${config.id}`);
     if (button) {
@@ -923,12 +922,14 @@ function buildBillHistoryHTML(historyEntries) {
   return html;
 }
 
+// Function for Anna Quotes view to pre-fill Start & End DATETIME type fields
 function formatDateTimeLocal(sqlDateTimeString) {
     if (!sqlDateTimeString) return '';
     // Replaces space with 'T' and truncates seconds/milliseconds
     return sqlDateTimeString.replace(' ', 'T').substring(0, 16);
 }
 
+// Allows Anna to view requests that can be rejected or submitted as a quote
 function renderAnnaRequestUI(requests) {
     const sectionContainer = document.getElementById('pending-requests-section');
     const container = document.getElementById('pending-requests-list');
@@ -952,6 +953,7 @@ function renderAnnaRequestUI(requests) {
         <div class="card-header">
             <div class="meta-info">
                 <span class="request-label">Request #${req.request_id}</span>
+                <span class="request-label">Client ID: ${req.client_id} | User: ${req.username}</span>
             </div>
             <span class="status-tag status-tag-pending">Pending Quote</span>
         </div>
@@ -975,7 +977,7 @@ function renderAnnaRequestUI(requests) {
             </div>
             <div class="detail-row">
                 <span>Proposed Budget:</span>
-                <span>${req.proposed_budget}</span>
+                <span>$${Number(req.proposed_budget).toFixed(2)}</span>
             </div>
             ${req.notes ? `<p class="request-note">Note: ${req.notes}</p>` : ''}
             <div class="input-group">
@@ -1005,7 +1007,6 @@ function renderAnnaRequestUI(requests) {
         </div>
     `;
 
-        // Attach listeners dynamically
         div.querySelector('.submit-quote-btn')
         .addEventListener('click', () => submitQuote(req.request_id));
 
@@ -1016,6 +1017,7 @@ function renderAnnaRequestUI(requests) {
     });
 }
 
+// Allows Anna to view quotes (quoted or countered ones) that can be canceled, rejected, or resubmitted
 function renderAnnaQuoteUI(requests) {
     const sectionContainer = document.getElementById('pending-quotes-section');
     const container = document.getElementById('pending-quotes-list');
@@ -1037,7 +1039,7 @@ function renderAnnaQuoteUI(requests) {
         const formattedStart = formatDateTimeLocal(req.scheduled_start);
         const formattedEnd = formatDateTimeLocal(req.scheduled_end);
         const status = req.status.toLowerCase();
-        let statusClass = 'status-tag-default';
+        let statusClass = 'status-tag-default'; // Styling for quote status, applies to requests & bills too in the other renderAnna functions
 
         if (status === 'quoted') {
             statusClass = 'status-tag-quoted'; 
@@ -1050,7 +1052,8 @@ function renderAnnaQuoteUI(requests) {
             <div class="card-header">
                 <div class="meta-info">
                     <span class="quote-label">Quote #${req.quote_id}</span>
-                    <span class="request-label">Request #${req.request_id}</span>
+                    <span class="request-label">Request #${req.request_id} | Client ID: ${req.client_id} | User: ${req.username}</span>
+
                 </div>
                 <span class="status-tag ${statusClass}">${req.status}</span>
             </div>
@@ -1097,6 +1100,7 @@ function renderAnnaQuoteUI(requests) {
     });
 }
 
+// Allows Anna to view all bills
 function renderAnnaBillUI(requests) {
     const sectionContainer = document.getElementById('bills-section');
     const container = document.getElementById('bills-list'); 
@@ -1181,13 +1185,13 @@ function renderAnnaBillUI(requests) {
     });
 }
 
+// Function for Anna to submit a quote
 function submitQuote(requestId) {
     const price = document.getElementById(`request-price-${requestId}`).value;
     const start = document.getElementById(`request-start-${requestId}`).value;
     const end = document.getElementById(`request-end-${requestId}`).value;
     const note = document.getElementById(`request-note-${requestId}`).value;
 
-    // Basic validation
     if (!price || !start || !end) {
         alert("Please enter price, start, and end dates for the quote.");
         return;
@@ -1216,6 +1220,7 @@ function submitQuote(requestId) {
     .catch(err => console.error("Error submitting quote:", err));
 }
 
+// Function for Anna to resubmit a quote
 function resubmitQuote(quoteId) {
     const priceString = document.getElementById(`quote-price-${quoteId}`).value.trim();
     const newStart = document.getElementById(`quote-start-${quoteId}`).value.trim();
@@ -1257,6 +1262,7 @@ function resubmitQuote(quoteId) {
     .catch(err => console.error("Error resubmitting quote:", err));
 }
 
+// Function for Anna to reject a service request
 function rejectRequest(requestId) {
     const note = prompt("Please enter a note explaining the request rejection:");
 
@@ -1287,36 +1293,37 @@ function rejectRequest(requestId) {
         .catch(err => console.error("Error rejecting request:", err));
     }
 
-    function rejectQuote(quoteId) {
-        const note = prompt("Enter a note for this quote rejection:");
-        if (note === null) return;
+// Function for Anna to reject a quote
+function rejectQuote(quoteId) {
+    const note = prompt("Enter a note for this quote rejection:");
+    if (note === null) return;
 
-        if (!note.trim()) {
-            alert("Please enter a note before rejecting.");
-            return;
-        }
-
-        fetch('/rejectQuote', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                quoteId,
-                note: note
-            })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-              alert('Quote successfully rejected.');
-              loadAnnaDashboardData();
-            } else {
-                alert("Error rejecting quote: " + (data.error || "Unknown error"));
-            }
-        })
-        .catch(err => console.error("Error rejecting quote:", err));
+    if (!note.trim()) {
+        alert("Please enter a note before rejecting.");
+        return;
     }
 
-// Allow Anna to Cancel a Quote
+    fetch('/rejectQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quoteId,
+            note: note
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Quote successfully rejected.');
+            loadAnnaDashboardData();
+        } else {
+            alert("Error rejecting quote: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error rejecting quote:", err));
+}
+
+// Function for Anna to cancel a quote
 function annaCancelQuote(quoteId) {
     const note = prompt("Enter a note for canceling this quote:");
     if (note === null) return;
@@ -1347,7 +1354,7 @@ function annaCancelQuote(quoteId) {
     .catch(err => console.error("Error cancelling quote:", err));
 }
 
-// Allow the Client to Cancel a Quote
+// Function for the client to cancel a quote
 function clientCancelQuote(quoteId) {
     const note = prompt("Enter a note for canceling this quote:");
     if (note === null) return;
@@ -1449,7 +1456,7 @@ function renderClientRejectedRequests(requests) {
 
 // Function for client to manage quotes
 function renderClientQuotes(requests) {
-    // Filter for requests that have a quote and are not fully resolved (rejected, canceled)
+    // Filter for rejected or canceled quotes
     const activeQuotes = requests.filter(request => 
         request.quote_id && 
         request.quote_status !== 'rejected' && 
@@ -1467,12 +1474,11 @@ function renderClientQuotes(requests) {
     activeQuotes.forEach(request => {
         const isActionNeeded = request.quote_status === 'quoted' || request.quote_status === 'countered';
         
-        // Use a consistent status tag class
         const statusClass = isActionNeeded ? 'status-tag-pending' : 'status-tag-paid'; 
         const statusText = isActionNeeded ? request.quote_status.toUpperCase() : 'ACCEPTED';
         
         const item = document.createElement('div');
-        // 💡 Styling Fix: Added 'dark-card'
+
         item.className = 'ui-card dark-card quote-item-card';
         
         item.innerHTML = `
@@ -1524,7 +1530,6 @@ function renderClientQuotes(requests) {
                      <button onclick="counterQuote(${request.quote_id})" class="action-btn secondary-btn">Counter</button>
                      <button onclick="clientCancelQuote(${request.quote_id})" class="action-btn secondary-btn cancel-quote-btn">Cancel</button>`
                     : 
-                    // Accepted status shows a simple view button
                     `<button onclick="viewServiceOrder(${request.request_id})" class="action-btn secondary-btn">View Order</button>`
                 }
             </div>
@@ -1540,7 +1545,7 @@ function renderClientBills(requestsData) {
         .filter(request => request.bills && request.bills.length > 0)
         .flatMap(request => request.bills.map(bill => ({
             ...bill,
-            requestId: request.request_id // Attach the parent request ID for context
+            requestId: request.request_id // Attach the parent request ID
         })));
 
     const container = document.getElementById('client-bills-list');
@@ -1558,7 +1563,7 @@ function renderClientBills(requestsData) {
         const statusClass = isUnpaid ? 'status-tag-unpaid' : (isPaid ? 'status-tag-paid' : 'status-tag-disputed');
 
         const item = document.createElement('div');
-        // 💡 Styling Fix: Added 'dark-card' to match Anna's UI
+
         item.className = 'ui-card dark-card bill-item-card'; 
 
         item.innerHTML = `
@@ -1586,12 +1591,9 @@ function renderClientBills(requestsData) {
 
             <div class="card-actions action-group">
                 ${isUnpaid ? 
-                    // Unpaid buttons use action-btn classes
                     `<button onclick="openPayForm(${bill.bill_id})" class="action-btn primary-btn">Pay Now</button>
                      <button onclick="disputeBill(${bill.bill_id})" class="action-btn secondary-btn">Dispute</button>` 
                     : 
-                    // Paid/Disputed button uses view action
-                    // 💡 Button Fix: Corrected HTML for data attribute and used standard classes
                     `<button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}" data-request-id="${bill.requestId}">
                         View Service Bill
                     </button>`
@@ -1599,10 +1601,8 @@ function renderClientBills(requestsData) {
             </div>
         `;
         
-        // 💡 Event Listener Fix: Attach listener for the View button if it exists
         if (!isUnpaid) {
              item.querySelector('.view-bill-btn')
-                 // Assuming viewServiceBill needs the request_id, similar to Anna's UI
                  .addEventListener('click', () => viewServiceBill(bill.requestId));
         }
 
@@ -1695,6 +1695,7 @@ async function payBill(billId) {
     }
 }
 
+// Function for the client to dispute a bill
 async function disputeBill(billId) {
     const note = prompt("Please enter a note explaining your bill dispute:");
 
@@ -1727,10 +1728,10 @@ async function disputeBill(billId) {
     }
 }
 
-// Client accepts a quote
+// Function for the client to accept a quote
 function acceptQuote(requestId) {
     const currentUser = localStorage.getItem("loggedInUser");
-    // Notify server so Anna's dashboard knows this quote was accepted
+
     fetch('/client/accept-quote', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1752,7 +1753,7 @@ function acceptQuote(requestId) {
     });
 }
 
-// Client counters a quote
+// Function for client to counter a quote with a note
 function counterQuote(quoteId) {
     const currentUser = localStorage.getItem("loggedInUser");
     const note = prompt("Please enter a note explaining your counter-offer or request for renegotiation:");
@@ -1784,10 +1785,9 @@ function counterQuote(quoteId) {
     .catch(err => console.error("Error submitting counter-offer:", err));
 }
 
-// Function to allow Anna to revise a bill amount and add a note
+// Function for Anna to revise the bill amount and add a note
 async function reviseBill(requestId) {
     try {
-        // 1. FETCH CURRENT BILL DETAILS
         const response = await fetch(`/getBill/${requestId}`);
         const data = await response.json();
 
@@ -1799,9 +1799,8 @@ async function reviseBill(requestId) {
         const bill = data.request;
         const oldAmount = Number(bill.bill_amount).toFixed(2);
         
-        // 2. GET NEW AMOUNT AND VALIDATE
         const newAmountInput = prompt(`Enter new bill amount (Current: $${oldAmount}):`, oldAmount);
-        if (newAmountInput === null) return; // Prompt cancelled
+        if (newAmountInput === null) return;
         
         const newAmount = Number(newAmountInput);
         if (isNaN(newAmount) || newAmount <= 0) {
@@ -1809,16 +1808,14 @@ async function reviseBill(requestId) {
             return; 
         } 
         
-        // 3. GET REVISION NOTE
         const note = prompt("Enter a note for this revision (e.g., Discount applied):");
-        if (note === null) return; // Prompt cancelled
+        if (note === null) return;
 
-        // 4. SUBMIT REVISION
         const res = await fetch('/reviseBill', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                billId: bill.bill_id, // Use the fetched bill ID
+                billId: bill.bill_id,
                 newAmount: newAmount.toFixed(2), 
                 note 
             })

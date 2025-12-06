@@ -37,8 +37,7 @@ class DbService{
         return instance? instance: new DbService();
     }
 
-    async insertNewUser(username, password, first_name, last_name, address, address_city, address_state, address_zip, phone, 
-                email, card_num, card_month, card_year, card_cvv) {
+    async insertNewUser(username, password, first_name, last_name, address, address_city, address_state, address_zip, phone, email) {
         
         try {
             // check if username exists
@@ -158,48 +157,7 @@ class DbService{
         }
     }
 
-    // function to allow the client to respond to a quote (accept / reject / counter)
-    // note: client_username is the client's username (we resolve to user_id here)
-    async clientRespondToQuote(client_username, requestId, status, note) {
-        try {
-            // resolve client's user_id
-            const clientId = await new Promise((resolve, reject) => {
-                const q = "SELECT user_id FROM Users WHERE username = ?";
-                connection.query(q, [client_username], (err, results) => {
-                    if (err) reject(err);
-                    else if (!results || results.length === 0) reject(new Error("Client not found"));
-                    else resolve(results[0].user_id);
-                });
-            });
-
-            // insert the client's response as a new Quotes row with responder_type = 'Client'
-            const insertId = await new Promise((resolve, reject) => {
-                const query = `
-                    INSERT INTO Quotes
-                    (request_id, client_id, note, status, responder_type)
-                    VALUES (?, ?, ?, ?, 'Client')
-                `;
-                connection.query(query, [requestId, clientId, note ?? null, status], (err, result) => {
-                    if (err) reject(err);
-                    else resolve(result.insertId);
-                });
-            });
-
-            // if the client accepted -> create an order (set order_generated and quote_accept_date)
-            if (status === 'accepted') {
-                await new Promise((resolve, reject) => {
-                    const q = "UPDATE Request_Cleaning SET order_generated = 1, quote_accept_date = NOW() WHERE request_id = ?";
-                    connection.query(q, [requestId], (err, res) => err ? reject(err) : resolve(res));
-                });
-            }
-
-            return { success: true, response_id: insertId };
-        } catch (err) {
-            throw err;
-        }
-    }
-
-    // function to fetch the full quote/negotiation history
+    // Function to get the quoteHistory to be displayed in a service order
     async getQuoteHistory(requestId) {
         try {
             const quoteId = await new Promise((resolve, reject) => {
@@ -224,7 +182,7 @@ class DbService{
         } catch (err) { throw err; }
     }
 
-    // function to mark a bill as paid (client pays immediately)
+    // Function to update a bill as paid
     async payBill(billId) {
         try {
             const result = await new Promise((resolve, reject) => {
@@ -240,10 +198,9 @@ class DbService{
         }
     }
 
-    // function to allow a client to dispute a bill (adds a Bill_History entry and sets status to 'Disputed')
+    // Function to allow a client to dispute a bill (adds a Bill_History entry and sets status to 'Disputed')
     async disputeBill(billId, note) {
         try {
-            // resolve client id
             const clientId = await new Promise((resolve, reject) => {
                 const q = "SELECT client_id FROM Bills WHERE bill_id = ?;";
                 connection.query(q, [billId], (err, results) => {
@@ -262,7 +219,7 @@ class DbService{
                 });
             });
 
-            // insert dispute note into Bill_History
+            // Add an entry to the bill history
             await new Promise((resolve, reject) => {
                 const q = `
                     INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date)
@@ -271,7 +228,7 @@ class DbService{
                 connection.query(q, [billId, clientId, note, billData.bill_amount], (err, res) => err ? reject(err) : resolve(res));
             });
 
-            // update bill status to Disputed
+            // Update bill status to Disputed and include a note
             await new Promise((resolve, reject) => {
                 const q = "UPDATE Bills SET bill_status = 'Disputed', note = ? WHERE bill_id = ?";
                 connection.query(q, [note, billId], (err, res) => err ? reject(err) : resolve(res));
@@ -283,10 +240,9 @@ class DbService{
         }
     }
 
-    // function to allow Anna to revise a bill (adjust amount, add note) and store revision in Bill_History
+    // Function to allow Anna to revise a bill (adjust amount, add note) and store revision in Bill_History
     async reviseBill(billId, newAmount, note) {
         try {
-            // resolve client id
             const clientId = await new Promise((resolve, reject) => {
                 const q = "SELECT client_id FROM Bills WHERE bill_id = ?;";
                 connection.query(q, [billId], (err, results) => {
@@ -296,7 +252,6 @@ class DbService{
                 });
             });
 
-            // insert revision into Bill_History
             await new Promise((resolve, reject) => {
                 const q = `
                     INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date)
@@ -305,7 +260,7 @@ class DbService{
                 connection.query(q, [billId, clientId, note ?? null, newAmount ?? null ], (err, res) => err ? reject(err) : resolve(res));
             });
 
-            // update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
+            // Update bills table with new amount and reset status to Unpaid (so client can pay or dispute)
             await new Promise((resolve, reject) => {
                 const q = `
                     UPDATE Bills
@@ -321,12 +276,12 @@ class DbService{
         }
     }
 
-    // function to fetch bill negotiation history for a given bill
+    // Function to fetch the bill history for a given bill to be displayed in a service bill
     async getBillHistory(billId) {
         try {
             const response = await new Promise((resolve, reject) => {
                 const query = `
-                    SELECT bh.*, u.username AS responder_username
+                    SELECT bh.*
                     FROM Bill_History bh
                     LEFT JOIN Users u ON bh.client_id = u.user_id
                     WHERE bh.bill_id = ?
@@ -344,6 +299,7 @@ class DbService{
         }
     }
 
+    // Most service orders query
     async mostServiceOrders(){
         try{
              const response = await new Promise((resolve, reject) => 
@@ -374,6 +330,7 @@ class DbService{
         }
     }
 
+    // Accepted quotes in a month search query
     async acceptedMonthQuotes(month){
         try{
              const response = await new Promise((resolve, reject) => 
@@ -404,6 +361,7 @@ class DbService{
         }
     }
 
+    // Large job search query
     async largestJob(){
         try{
              const response = await new Promise((resolve, reject) => 
@@ -434,6 +392,7 @@ class DbService{
         }
     }
 
+    // Bad clients search query
     async badClients(){
         try{
              const response = await new Promise((resolve, reject) => 
@@ -459,7 +418,7 @@ class DbService{
         }
     }
 
-    // 4. Uncommitted Clients: 3+ requests but never completed an order
+    // Uncommitted clients search query: 3+ requests but never completed an order
     async uncommittedClients() {
         try {
             const query = `
@@ -483,7 +442,7 @@ class DbService{
         }
     }
 
-    // 6. Prospective Clients: registered but never submitted any request
+    // Prospective Clients search query: registered but never submitted any request
     async prospectiveClients() {
         try {
             const query = `
@@ -505,7 +464,7 @@ class DbService{
         }
     }
 
-    // 8. Overdue Bills: unpaid bills older than one week
+    // Overdue Bills search query: unpaid bills older than one week
     async overdueBills() {
         try {
             const query = `
@@ -525,7 +484,7 @@ class DbService{
         }
     }
 
-    // 10. Good Clients: always paid bills within 24 hours
+    // Good clients search query: always paid bills within 24 hours
     async goodClients() {
         try {
             const query = `
@@ -580,6 +539,7 @@ class DbService{
         }
     }
 
+    // Function to get user info used in viewing a service order & bill
     async getUser(clientId) {
         try {
              const response = await new Promise((resolve, reject) => 
@@ -598,6 +558,7 @@ class DbService{
         }
     }
 
+    // Function to get request info used in viewing a service order & bill
     async getRequest(requestId) {
         try {
              const response = await new Promise((resolve, reject) => 
@@ -616,6 +577,7 @@ class DbService{
         }
     }
 
+    // Function to get bill info used in view a service bill & revising a bill
     async getBill(requestId) {
         try {
              const response = await new Promise((resolve, reject) => 
@@ -634,6 +596,7 @@ class DbService{
         }
     }
 
+    // Function to flip the order_generated status from 0 to 1 only if it was 0 beforehand
     async generateServiceOrder(requestId) {
         try {
             await new Promise((resolve, reject) => {
@@ -649,7 +612,8 @@ class DbService{
             throw err;
         }
     }
-    
+
+    // Function to flip the bill_generated status from 0 to 1 only if it was 0 beforehand    
     async generateServiceBill(requestId) {
         try {
             const requestInfo = await new Promise((resolve, reject) => {
@@ -717,11 +681,12 @@ class DbService{
         }
     }
 
+    // Function for Anna to get requests that haven't been quoted or rejected
     async getPendingRequestsForAnna() {
         try {
             const response = await new Promise((resolve, reject) => {
                 const query = `
-                    SELECT r.request_id, r.service_address_street, r.service_address_city, r.service_address_state,
+                    SELECT r.request_id, r.client_id, r.service_address_street, r.service_address_city, r.service_address_state,
                         r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
                         r.notes, r.status, u.username
                     FROM Request_Cleaning r
@@ -743,6 +708,7 @@ class DbService{
         }
     }
 
+    // Function for Anna to get quotes that can be canceled, rejected, or resubmitted
     async getPendingQuotesForAnna() {
         try {
             const response = await new Promise((resolve, reject) => {
@@ -765,6 +731,7 @@ class DbService{
         }
     }
 
+    // Function for Anna to get all bills
     async getBillsForAnna() {
     try {
         const response = await new Promise((resolve, reject) => {
@@ -788,33 +755,16 @@ class DbService{
         }
     }
 
+    // Function for the client to get requests, column name conflicts are prevented using: request_status, quote_note, & quote_status
     async clientLoadRequests(username) {
         try {
             const requests = await new Promise((resolve, reject) => {
                 const query = `
                     SELECT 
-                        r.request_id,
-                        r.service_address_street,
-                        r.service_address_city,
-                        r.service_address_state,
-                        r.service_address_zip,
-                        r.cleaning_type,
-                        r.rooms,
-                        r.preferred_date,
-                        r.proposed_budget,
-                        r.notes,
-                        r.order_generated,
-                        r.bill_generated,
-                        r.status AS request_status,
-                        u.username,
-                        q.quote_id,
-                        q.quote_price,
-                        q.scheduled_start,
-                        q.scheduled_end,
-                        q.note AS quote_note,
-                        q.status AS quote_status,
-                        q.responder_type,
-                        q.response_date
+                        r.request_id, r.service_address_street, r.service_address_city, r.service_address_state, r.service_address_zip,
+                        r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget, r.notes, r.order_generated, r.bill_generated,
+                        r.status AS request_status, u.username, q.quote_id, q.quote_price, q.scheduled_start, q.scheduled_end,
+                        q.note AS quote_note, q.status AS quote_status, q.responder_type, q.response_date
                     FROM Request_Cleaning r
                     JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q ON q.request_id = r.request_id
@@ -847,9 +797,9 @@ class DbService{
         }
     }
 
+    // Function for Anna to submit a quote then add an entry to the quote history
     async submitQuote(requestId, quotePrice, start, end, note) {
         try {
-            // resolve client_id
             const clientId = await new Promise((resolve, reject) => {
                 const q = "SELECT client_id FROM Request_Cleaning WHERE request_id = ?";
                 connection.query(q, [requestId], (err, results) => {
@@ -902,17 +852,12 @@ class DbService{
         }
     }
 
+    // Function for Anna to resubmit a quote then add an entry to the quote history
     async resubmitQuote(quoteId, newPrice, newStart, newEnd, note) {
         await new Promise((resolve, reject) => {
             const updateQuery = `
                 UPDATE Quotes 
-                SET responder_type = 'Anna',
-                    quote_price = ?,                 
-                    scheduled_start = ?,             
-                    scheduled_end = ?,
-                    note = ?,               
-                    status = 'quoted',
-                    response_date = CURRENT_TIMESTAMP()
+                SET responder_type = 'Anna', quote_price = ?, scheduled_start = ?, scheduled_end = ?, note = ?, status = 'quoted', response_date = CURRENT_TIMESTAMP()
                 WHERE quote_id = ?;
             `;
             connection.query(updateQuery, [newPrice, newStart, newEnd, note, quoteId], (err, res) => {
@@ -945,6 +890,7 @@ class DbService{
         return { success: true };
     }
 
+    // Function for Anna to reject a service request with a note
     async rejectRequest(requestId, note) {
         try {
             await new Promise((resolve, reject) => {
@@ -965,6 +911,7 @@ class DbService{
         }
     }
 
+    // Function for Anna to reject a quote then add an entry to the quote history
     async rejectQuote(quoteId, note) {
         try {
             await new Promise((resolve, reject) => {
@@ -1008,6 +955,7 @@ class DbService{
         }
     }
 
+    // Function for either the client or Anna to cancel a quote then add an entry to the quote history
     async cancelQuote(quoteId, responderType, note) {
         try {
             const quoteData = await new Promise((resolve, reject) => {
@@ -1048,6 +996,7 @@ class DbService{
         }
     }
 
+    // Function for the client to counter a quote with a note then add an entry to the quote history
     async counterQuote(quoteId, note) {
         try {
             const quoteData = await new Promise((resolve, reject) => {

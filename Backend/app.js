@@ -73,6 +73,7 @@ app.post('/addQuote', async (req, res) => {
     }
 });
 
+// Client counters a quote with a note
 app.post('/counterQuote', async (req, res) => {
     const { quoteId, note } = req.body; 
 
@@ -91,6 +92,7 @@ app.post('/counterQuote', async (req, res) => {
     }
 });
 
+// Anna rejects a request with a note
 app.post('/rejectRequest', async (req, res) => {
     const { requestId, note } = req.body;
 
@@ -109,6 +111,7 @@ app.post('/rejectRequest', async (req, res) => {
     }
 });
 
+// Anna rejects a quote with a note
 app.post('/rejectQuote', async (req, res) => {
     const { quoteId, note } = req.body;
 
@@ -127,6 +130,7 @@ app.post('/rejectQuote', async (req, res) => {
     }
 });
 
+// Either the client or Anna can cancel a quote with a note
 app.post('/cancelQuote', async (req, res) => {
     const { quoteId, responderType, note } = req.body;
 
@@ -145,6 +149,7 @@ app.post('/cancelQuote', async (req, res) => {
     }
 });
 
+// Client accepts a quote
 app.post('/client/accept-quote', async (req, res) => {
     const { requestId } = req.body;
     const db = dbService.getDbServiceInstance();
@@ -218,7 +223,7 @@ app.get('/badClients', (request, response) => {
     .catch(err => console.log(err));
 });
 
-// 4. Uncommitted Clients
+// Search for Uncommitted Clients
 app.get('/uncommittedClients', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
@@ -230,7 +235,7 @@ app.get('/uncommittedClients', async (req, res) => {
     }
 });
 
-// 6. Prospective Clients
+// Search for Prospective Clients
 app.get('/prospectiveClients', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
@@ -242,7 +247,7 @@ app.get('/prospectiveClients', async (req, res) => {
     }
 });
 
-// 8. Overdue Bills
+// Search for Overdue Bills
 app.get('/overdueBills', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
@@ -254,7 +259,7 @@ app.get('/overdueBills', async (req, res) => {
     }
 });
 
-// 10. Good Clients
+// Search for Good Clients
 app.get('/goodClients', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
@@ -407,7 +412,7 @@ app.get('/generateServiceBill/:requestId', async (request, response) => {
   }
 });
 
-// Fetch all client requests along with their quote/negotiation status
+// Fetch all client requests
 app.post('/clientLoadRequests/:username', async (req, res) => {
   const { username } = req.params;
   const db = dbService.getDbServiceInstance();
@@ -426,11 +431,11 @@ app.post('/clientLoadRequests/:username', async (req, res) => {
   }
 });
 
-// Fetch all pending requests that need Anna's quote
+// Fetch pending requests that need to be reviewed by Anna
 app.get('/pendingRequests', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
-        const requests = await db.getPendingRequestsForAnna(); // fetch only unhandled requests
+        const requests = await db.getPendingRequestsForAnna();
         res.json({ requests });
     } catch (err) {
         console.error('Error fetching pending requests:', err);
@@ -438,7 +443,7 @@ app.get('/pendingRequests', async (req, res) => {
     }
 });
 
-// Fetch all pending quotes that need Anna's resubmission
+// Fetch quotes that need to be reviewed by Anna
 app.get('/pendingQuotes', async (req, res) => {
     const db = dbService.getDbServiceInstance();
     try {
@@ -462,6 +467,7 @@ app.get('/getBills', async (req, res) => {
     }
 });
 
+// Client pays a bill
 app.post('/payBill', async (req, res) => {
     const { billId } = req.body;
     if (!billId) return res.json({ success: false, error: 'Missing info' });
@@ -496,6 +502,7 @@ app.post('/reviseBill', async (req, res) => {
     }
 });
 
+// Client disputes a bill with a note
 app.post('/client/dispute-bill', async (req, res) => {
     const { billId, note } = req.body;
     if (!billId || !note) {
