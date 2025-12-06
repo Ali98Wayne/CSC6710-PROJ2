@@ -13,10 +13,6 @@ CREATE TABLE Users(
    address_zip VARCHAR(5),
    phone VARCHAR(12),
    email VARCHAR(50),
-   credit_card_num VARCHAR(50),
-   credit_card_month VARCHAR(20),
-   credit_card_year VARCHAR(4),
-   credit_card_cvv VARCHAR(4),
    signup_date DATE,
    last_login DATETIME
 );

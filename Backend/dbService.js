@@ -59,18 +59,18 @@ class DbService{
             const insertId = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO users (username, password, first_name, last_name, address_street, address_city, address_state, address_zip, phone, 
-                    email, credit_card_num, credit_card_month, credit_card_year, credit_card_cvv, signup_date)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
+                    email, signup_date)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW());
                 `;
                 connection.query(query, [username, password_hash, first_name, last_name, address, address_city, address_state, address_zip, 
-                    phone, email, card_num, card_month, card_year, card_cvv], (err, result) => {
+                    phone, email], (err, result) => {
                     if(err) reject(err);
                     else resolve(result.insertId);
                 });
             });
 
             return { id: insertId, username, password, first_name, last_name, address, address_city, address_state, address_zip, 
-                phone, email, card_num, card_month, card_year, card_cvv};
+                phone, email};
 
         } catch(err) {
             throw err;
@@ -1008,7 +1008,7 @@ class DbService{
         }
     }
 
-    async cancelQuote(quoteId, note) {
+    async cancelQuote(quoteId, responderType, note) {
         try {
             const quoteData = await new Promise((resolve, reject) => {
                 const getQuoteDataQuery = "SELECT * FROM Quotes WHERE quote_id = ?";
@@ -1022,9 +1022,9 @@ class DbService{
             await new Promise((resolve, reject) => {
                 const historyQuery = `
                     INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
-                    VALUES (?, ?, 'Anna', ?, ?, ?, ?, ?);
+                    VALUES (?, ?, ?, ?, ?, ?, 'canceled', ?);
                 `;
-                connection.query(historyQuery, [quoteId, quoteData.client_id, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, quoteData.status, note], (err, res) => {
+                connection.query(historyQuery, [quoteId, quoteData.client_id, responderType, quoteData.quote_price, quoteData.scheduled_start, quoteData.scheduled_end, note], (err, res) => {
                     if (err) reject(err);
                     else resolve(res);
                 });

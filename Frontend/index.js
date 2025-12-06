@@ -114,8 +114,7 @@ document.addEventListener("DOMContentLoaded", function() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password, first_name, last_name, address, 
-                address_city, address_state, address_zip, phone, email, card_num, 
-                card_month, card_year, card_cvv })
+                address_city, address_state, address_zip, phone, email })
         })
         .then(response => response.json())
         .then(data => {
@@ -135,6 +134,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 document.querySelector("#signup-creditcard-cvv").value = "";
                 document.querySelector("#signup-username").value = "";
                 document.querySelector("#signup-password").value = "";
+                toSignupOrLogin("login"); // Send the user to the Login section after creating an account
             } else {
                 alert("Error: " + (data.error || "Unknown error"));
             }
@@ -1091,7 +1091,7 @@ function renderAnnaQuoteUI(requests) {
             .addEventListener('click', () => rejectQuote(req.quote_id));
 
         div.querySelector('.cancel-quote-btn')
-            .addEventListener('click', () => cancelQuote(req.quote_id));
+            .addEventListener('click', () => annaCancelQuote(req.quote_id));
 
         container.appendChild(div);
     });
@@ -1260,7 +1260,9 @@ function resubmitQuote(quoteId) {
 function rejectRequest(requestId) {
     const note = prompt("Please enter a note explaining the request rejection:");
 
-    if (!note || note.trim() === "") {
+    if (note === null) return;
+
+    if (note.trim().length === 0) {
         alert("Request rejection requires a note.");
         return;
     }
@@ -1314,34 +1316,73 @@ function rejectRequest(requestId) {
         .catch(err => console.error("Error rejecting quote:", err));
     }
 
-  function cancelQuote(quoteId) {
-        const note = prompt("Enter a note for canceling this quote:");
-        if (note === null) return;
+// Allow Anna to Cancel a Quote
+function annaCancelQuote(quoteId) {
+    const note = prompt("Enter a note for canceling this quote:");
+    if (note === null) return;
 
-        if (!note.trim()) {
-            alert("Please enter a note before rejecting.");
-            return;
+    if (!note.trim()) {
+        alert("Please enter a note before rejecting.");
+        return;
+    }
+
+    fetch('/cancelQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quoteId: quoteId,
+            responderType: 'Anna',
+            note: note
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Quote successfully cancelled.');
+            loadAnnaDashboardData();
+        } else {
+            alert("Error cancelling quote: " + (data.error || "Unknown error"));
         }
+    })
+    .catch(err => console.error("Error cancelling quote:", err));
+}
 
-      fetch('/cancelQuote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-              quoteId: quoteId,
-              note: note,
-          })
-      })
-      .then(res => res.json())
-      .then(data => {
-          if (data.success) {
-              alert('Quote successfully cancelled.');
-              loadAnnaDashboardData();
-          } else {
-              alert("Error cancelling quote: " + (data.error || "Unknown error"));
-          }
-      })
-      .catch(err => console.error("Error cancelling quote:", err));
-  }
+// Allow the Client to Cancel a Quote
+function clientCancelQuote(quoteId) {
+    const note = prompt("Enter a note for canceling this quote:");
+    if (note === null) return;
+
+    const currentUser = localStorage.getItem("loggedInUser");
+    if (!currentUser) {
+        alert("You must be logged in to pay a bill.");
+        return;
+    }
+
+    if (!note.trim()) {
+        alert("Please enter a note before rejecting.");
+        return;
+    }
+
+    fetch('/cancelQuote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            quoteId: quoteId,
+            responderType: 'Client',
+            note: note
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('Quote successfully cancelled.');
+            loadClientDashboardData(currentUser);
+        } else {
+            alert("Error cancelling quote: " + (data.error || "Unknown error"));
+        }
+    })
+    .catch(err => console.error("Error cancelling quote:", err));
+}
 
 // Function for client to see their rejected requests
 function renderClientRejectedRequests(requests) {
@@ -1480,7 +1521,8 @@ function renderClientQuotes(requests) {
             <div class="card-actions action-group">
                 ${isActionNeeded ? 
                     `<button onclick="acceptQuote(${request.request_id})" class="action-btn primary-btn">Accept</button>
-                     <button onclick="counterQuote(${request.quote_id})" class="action-btn secondary-btn">Counter</button>`
+                     <button onclick="counterQuote(${request.quote_id})" class="action-btn secondary-btn">Counter</button>
+                     <button onclick="clientCancelQuote(${request.quote_id})" class="action-btn secondary-btn cancel-quote-btn">Cancel</button>`
                     : 
                     // Accepted status shows a simple view button
                     `<button onclick="viewServiceOrder(${request.request_id})" class="action-btn secondary-btn">View Order</button>`
@@ -1656,7 +1698,9 @@ async function payBill(billId) {
 async function disputeBill(billId) {
     const note = prompt("Please enter a note explaining your bill dispute:");
 
-    if (!note || note.trim() === "") {
+    if (note === null) return; // Can exit out of the prompt without receiving another alert
+
+    if (note.trim().length === 0) {
         alert("Bill disputes require a note.");
         return;
     }
@@ -1712,9 +1756,11 @@ function acceptQuote(requestId) {
 function counterQuote(quoteId) {
     const currentUser = localStorage.getItem("loggedInUser");
     const note = prompt("Please enter a note explaining your counter-offer or request for renegotiation:");
+    
+    if (note === null) return; // Can exit out of the prompt without receiving another alert
 
-    if (!note || note.trim() === "") {
-        alert("Counter/Renegotiation requires a note.");
+    if (note.trim().length === 0) {
+        alert("Bill disputes require a note.");
         return;
     }
 

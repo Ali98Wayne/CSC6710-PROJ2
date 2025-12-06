@@ -128,7 +128,7 @@ app.post('/rejectQuote', async (req, res) => {
 });
 
 app.post('/cancelQuote', async (req, res) => {
-    const { quoteId, note } = req.body;
+    const { quoteId, responderType, note } = req.body;
 
     if (!quoteId || !note) {
         return res.json({ success: false, error: "Missing required fields: quoteId and note." });
@@ -137,7 +137,7 @@ app.post('/cancelQuote', async (req, res) => {
     const db = dbService.getDbServiceInstance();
 
     try {
-        await db.cancelQuote(quoteId, note);
+        await db.cancelQuote(quoteId, responderType, note);
         res.json({ success: true });
     } catch (err) {
         console.error(err);
