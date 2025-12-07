@@ -1,3 +1,14 @@
+// Function to show/hide content using the 'conditional-content' class
+    function toggleVisibility(element, show) {
+        if (!element) return;
+        if (show) {
+            element.classList.remove('conditional-content');
+            element.style.display = ''; // Clear inline display if set by a previous operation
+        } else {
+            element.classList.add('conditional-content');
+        }
+    }
+
 // Client dashboard view function which also refreshes content after data is successfully sent to the DB, needs to be a global function
 async function loadClientDashboardData(username) {
     try {
@@ -52,6 +63,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.getElementById('service-address-state').selectedIndex = 0; // Set the default service state option on page reload
     document.getElementById('cleaning-type').selectedIndex = 0; // Set the default cleaning type to Basic on page reload
     document.getElementById('monthQuotes').selectedIndex = 0; // Set the default quote search month to January on page reload
+    document.getElementById('yearQuotes').selectedIndex = 0; // Empty the month search year input on page reload
     const addPhotoButton = document.getElementById('add-photo-button');
     const photoFields = document.getElementById('photo-fields');
     let photoNum = 0; // Keeps track of how many photo link fields are on the service request page
@@ -71,11 +83,11 @@ document.addEventListener("DOMContentLoaded", function() {
     // Function to swap between Sign Up & Login sections
     function toSignupOrLogin(target) {
       if (target === "login") {
-          signupSection.style.display = "none"; // Hide the Sign Up section
-          loginSection.style.display = "block"; // Show the Login section
+          toggleVisibility(signupSection, false); // Hide the Sign Up section
+          toggleVisibility(loginSection, true); // Show the Login section
       } else {
-          signupSection.style.display = "block"; // Show the Sign Up section
-          loginSection.style.display = "none"; // Hide the Login section
+          toggleVisibility(signupSection, true); // Show the Sign Up section
+          toggleVisibility(loginSection, false); // Hide the Login section
       }
 
       // Reset Signup & Login input fields when swapping between sections 
@@ -214,6 +226,12 @@ document.addEventListener("DOMContentLoaded", function() {
         e.target.value = input;
     });
 
+    document.getElementById('yearQuotes').addEventListener('input', function(e) {
+        let input = e.target.value.replace(/\D/g, '');
+        if (input.length > 4) input = input.substring(0, 4); // Limit to 4 digits
+        e.target.value = input;
+    });
+
     // Login page implementation
     const loginBtn = document.querySelector("#login-btn");
     const profileToggle = document.querySelector("#profile-toggle");
@@ -249,58 +267,58 @@ document.addEventListener("DOMContentLoaded", function() {
         const billsSection = document.getElementById("bills-section");
 
         if (currentUser) {
-            signupSection.style.display = "none";
-            loginSection.style.display = "none";
-            profileSection.style.display = "flex";
+            toggleVisibility(signupSection, false);
+            toggleVisibility(loginSection, false);
+            toggleVisibility(profileSection, true);
             profileName.textContent = currentUser;
-            logoutBtn.style.display = "none";
-            serviceRequest.style.display = "block";
-            queriesSection.style.display = "none";
-            queryResults.style.display = "none";
-            clientRequestsSection.style.display = "block";
-            clientQuotesSection.style.display = "block";
-            clientBillsSection.style.display = "block";
-            pendingRequestsSection.style.display = "none";
-            pendingQuotesSection.style.display = "none";
-            billsSection.style.display = "none";
+            toggleVisibility(logoutBtn, false);
+            toggleVisibility(serviceRequest, true);
+            toggleVisibility(clientRequestsSection, true);
+            toggleVisibility(clientQuotesSection, true);
+            toggleVisibility(clientBillsSection, true);
+            toggleVisibility(queriesSection, false);
+            toggleVisibility(queryResults, false);
+            toggleVisibility(pendingRequestsSection, false);
+            toggleVisibility(pendingQuotesSection, false);
+            toggleVisibility(billsSection, false);
             if (queryBody) queryBody.innerHTML = '';
             loadClientDashboardData(currentUser);
         } else if (isAnnaUser) {
-            signupSection.style.display = "none";
-            loginSection.style.display = "none";
-            serviceRequest.style.display = "none";
-            queriesSection.style.display = 'block';
-            clientRequestsSection.style.display = "none";
-            clientQuotesSection.style.display = "none";
-            clientBillsSection.style.display = "none";
-            pendingRequestsSection.style.display = "block";
-            pendingQuotesSection.style.display = "block";
-            billsSection.style.display = "block";
+            toggleVisibility(signupSection, false);
+            toggleVisibility(loginSection, false);
+            toggleVisibility(serviceRequest, false);
+            toggleVisibility(queriesSection, true);
+            toggleVisibility(queryResults, true);
+            toggleVisibility(clientRequestsSection, false);
+            toggleVisibility(clientQuotesSection, false);
+            toggleVisibility(clientBillsSection, false);
+            toggleVisibility(pendingRequestsSection, true);
+            toggleVisibility(pendingQuotesSection, true);
+            toggleVisibility(billsSection, true);
             loadAnnaDashboardData();   
         } else {
-            signupSection.style.display = "block";
-            loginSection.style.display = "none";
-            profileSection.style.display = "none";
-            serviceRequest.style.display = "none";
+            toggleVisibility(signupSection, true);
+            toggleVisibility(loginSection, false);
+            toggleVisibility(profileSection, false);
+            toggleVisibility(serviceRequest, false);
             inputFields.forEach(input => input.value = "");
             photoFields.innerHTML = '';
             photoNum = 0;
-            addPhotoButton.style.display = 'inline-block';
-            queriesSection.style.display = "none";
-            queryResults.style.display = "none";
+            toggleVisibility(addPhotoButton, true);
+            toggleVisibility(queriesSection, false);
+            toggleVisibility(queryResults, false);
             if (queryBody) queryBody.innerHTML = '';
-            clientRequestsSection.style.display = "none";
-            clientQuotesSection.style.display = "none";
-            clientBillsSection.style.display = "none";
-            pendingRequestsSection.style.display = "none";
-            pendingQuotesSection.style.display = "none";
-            billsSection.style.display = "none";
+            toggleVisibility(clientRequestsSection, false);
+            toggleVisibility(clientQuotesSection, false);
+            toggleVisibility(clientBillsSection, false);
+            toggleVisibility(pendingRequestsSection, false);
+            toggleVisibility(pendingQuotesSection, false);
+            toggleVisibility(billsSection, false);
         }
+
+        document.querySelector('main').style.visibility = 'visible'; // Allow main HTML content to be visible, updateUI() handles what to show/hide based on user status
     }
 
-    // Check the login status on page load
-    updateUI();
-    
     // Login button event listener
     loginBtn.addEventListener("click", () => {
         const username = document.querySelector("#user-input").value;
@@ -335,13 +353,18 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Page document event listener for toggling off the logout button when clicking outside the profile section
     document.addEventListener("click", () => {
-        logoutBtn.style.display = "none";
+        toggleVisibility(logoutBtn, false);    
     });
 
     // Profile section event listener, clicking the profile section (with the icon & username) toggles the logout button
     profileToggle.addEventListener("click", (event) => {
         event.stopPropagation(); // Exception to the document event listener above since the profile section should toggle the logout button
-        logoutBtn.style.display = logoutBtn.style.display === "none" ? "inline-block" : "none";
+        
+        // Check the button's current state based on the conditional-content class
+        const isCurrentlyHidden = logoutBtn.classList.contains('conditional-content');
+
+        // Toggle the visibility of the logout button
+        toggleVisibility(logoutBtn, isCurrentlyHidden);
     });
     
     // Logout button event listener
@@ -383,7 +406,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
                 // Show the "Add Photo" button again if less than 5 photo fields are shown
                 if (photoNum < photosMax) {
-                    addPhotoButton.style.display = 'inline-block';
+                    toggleVisibility(addPhotoButton, true);
                 }
 
                 // Renumber shown fields after a field has been removed
@@ -395,7 +418,7 @@ document.addEventListener("DOMContentLoaded", function() {
             });
 
             // Hide the "Add Photo" button if 5 photo fields are shown
-            if (photoNum >= photosMax) addPhotoButton.style.display = 'none';
+            if (photoNum >= photosMax) toggleVisibility(addPhotoButton, false);
         } else alert(`Up to ${photosMax} photos may be added.`); // Alert the user in case the "Add Photo" button shows anyway after 5 fields are shown
     });
 
@@ -442,7 +465,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 document.querySelector("#notes").value = "";
                 photoFields.innerHTML = ''; // Remove all added photo fields
                 photoNum = 0; // Reset counter
-                addPhotoButton.style.display = 'inline-block'; // Show the Add Photo button again
+                toggleVisibility(addPhotoButton, true); // Show the Add Photo button again
             } else alert("Error: " + (data.error || "Unknown error"));
         })
         .catch(err => console.error("Request Service Error:", err));
@@ -461,47 +484,47 @@ const queryConfigs = [
         error: "Most Service Orders search error"
     },
     { 
-        id: 'month-quotes-search-btn', 
-        endpoint: '/monthQuotes', 
-        columns: ['request_id', 'client_id', 'username', 'quote_accept_date'],
-        error: "Month Quotes search error",
-        // Getting month value from the monthQuotes input field
-        getParams: () => ({ month: document.querySelector('#monthQuotes').value })
-    },
-    { 
-        id: 'largest-job-search-btn', 
-        endpoint: '/largestJob', 
-        columns: ['request_id', 'client_id', 'username', 'rooms'],
-        error: "Largest Job search error"
-    },
-    { 
-        id: 'bad-clients-search-btn', 
-        endpoint: '/badClients', 
-        columns: ['client_id', 'username', 'first_name', 'last_name'],
-        error: "Bad Clients search error"
-    },
-    { 
         id: 'uncommitted-clients-btn', 
         endpoint: '/uncommittedClients', 
-        columns: ['user_id', 'first_name', 'last_name', 'email', 'request_count'],
+        columns: ['user_id', 'first_name', 'last_name', 'request_count'],
         error: "Uncommitted Clients search error"
+    },
+    { 
+        id: 'month-quotes-search-btn', 
+        endpoint: '/monthYearQuotes', 
+        columns: ['request_id', 'client_id', 'username', 'first_name', 'last_name', 'quote_price', 'scheduled_start', 'scheduled_end', 'quote_accept_date'],
+        error: "Accepted Quotes search error",
+        // Getting the month & year values from the monthQuotes & yearQuotes input fields
+        getParams: () => ({ month: document.querySelector('#monthQuotes').value, year: document.querySelector('#yearQuotes').value })
     },
     { 
         id: 'prospective-clients-btn', 
         endpoint: '/prospectiveClients', 
-        columns: ['user_id', 'first_name', 'last_name', 'email'],
+        columns: ['user_id', 'username', 'first_name', 'last_name', 'signup_date'],
         error: "Prospective Clients search error"
+    },
+    { 
+        id: 'largest-job-search-btn', 
+        endpoint: '/largestJob', 
+        columns: ['request_id', 'client_id', 'username', 'first_name', 'last_name', 'rooms'],
+        error: "Largest Job search error"
     },
     { 
         id: 'overdue-bills-btn', 
         endpoint: '/overdueBills', 
-        columns: ['bill_id', 'request_id', 'client_id', 'bill_amount', 'bill_status', 'due_date', 'payment_date', 'note'],
+        columns: ['bill_id', 'request_id', 'client_id', 'bill_amount', 'bill_status', 'due_date', 'created_at', 'note'],
         error: "Overdue Bills search error"
+    },
+    { 
+        id: 'bad-clients-search-btn', 
+        endpoint: '/badClients', 
+        columns: ['bill_id', 'client_id', 'request_id', 'username', 'first_name', 'last_name', 'bill_amount', 'bill_status', 'due_date', 'created_at'],
+        error: "Bad Clients search error"
     },
     { 
         id: 'good-clients-btn', 
         endpoint: '/goodClients', 
-        columns: ['user_id', 'first_name', 'last_name', 'email'],
+        columns: ['bill_id', 'client_id', 'request_id', 'username', 'first_name', 'last_name', 'bill_amount', 'bill_status', 'due_date', 'payment_date', 'created_at'],
         error: "Good Clients search error"
     }
 ];
@@ -532,6 +555,37 @@ queryConfigs.forEach(config => {
     }
 });
 
+// List of all columns involving time, for use in the function below it when displaying search results
+const DATE_COLUMNS = [
+    'signup_date', 'last_login', 'preferred_date', 'request_date', 'created_at', 'response_date', 'scheduled_start', 
+    'scheduled_end', 'quote_accept_date', 'due_date', 'payment_date', 'last_updated'
+];
+
+// Function to properly display column values with time attributes in the search results based on column name
+function formatTimeBasedColumns(colName, value) {
+    if (!value || (! (value instanceof Date) && !DATE_COLUMNS.includes(colName))) {
+        return value;
+    }
+    
+    // Check Date object existence
+    const date = (value instanceof Date) ? value : new Date(value);
+
+    // Check for invalid date
+    if (isNaN(date.getTime())) {
+        return value; 
+    }
+
+    // Columns that only need the Date (MM/DD/YYYY)
+    const dateOnlyColumns = ['signup_date', 'preferred_date', 'due_date'];
+
+    if (dateOnlyColumns.includes(colName)) {
+        return date.toLocaleDateString(); // MM/DD/YYYY
+    } 
+    
+    // All other columns in the DATE_COLUMNS list will show Date and Time (MM/DD/YYYY HH:MM AM/PM)
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 // Function for showing query results in a table that differs in what columns are shown
 function searchResultsTable(query_data, columnsToShow = []) {
     const queryResults = document.querySelector("#query-results");
@@ -539,7 +593,7 @@ function searchResultsTable(query_data, columnsToShow = []) {
     const queryTableBody = document.querySelector('#query-results tbody');
 
     // Show the query results table, the idea is to only show when any of the search buttons (that call this function) are clicked
-    queryResults.style.display = "table";
+    toggleVisibility(queryResults, true);
 
     // Prevent leftover columns from a previous query from appearing in a query with no results
     queryTableHead.innerHTML = "";
@@ -559,20 +613,17 @@ function searchResultsTable(query_data, columnsToShow = []) {
 
     // Build query search results table header
     queryTableHead.innerHTML = `
-    <tr>${columnsToShow.map(col => `<th>${col}</th>`).join('')}</tr>`; // Array of HTML column name strings is joined into a single string without commas
+    <tr>${columnsToShow.map(col => `<th>${col.toUpperCase().replace(/_/g, ' ')}</th>`).join('')}</tr>`; // Array of HTML column name strings is joined into a single string without commas
 
     // Build query search results table body
-    // Array of HTML row result strings is joined into a single string without commas
     queryTableBody.innerHTML = query_data.map(row => `
     <tr>
         ${columnsToShow.map(col => { // Nested mapping of HTML column results
             let value = row[col]; // Set row results of each column
-            if (col === 'signup_date' && value)
-                // Format signup_date as MM/DD/YYYY
-                value = new Date(value).toLocaleDateString();
-            if (col === 'last_login')
-                // Ternary operation to format last_login as "MM/DD/YYYY, HH:MM:SS AM/PM" for users that have signed in or "NULL" if not
-                value = value ? new Date(value).toLocaleString() : 'NULL';
+
+            // Use the centralized formatting function for date/time fields
+            value = formatTimeBasedColumns(col, value);
+
             return `<td>${value}</td>`; // Return a mapped row result of a mapped column
         }).join('')}
     </tr>
@@ -592,12 +643,12 @@ function renderAnnaRequestUI(requests) {
     const container = document.getElementById('pending-requests-list');
 
     if (!requests || requests.length === 0) {
-    if (sectionContainer) sectionContainer.style.display = 'none';
-    container.innerHTML = ''; // Ensure the list is empty
-    return; 
+        if (sectionContainer) toggleVisibility(sectionContainer, false);
+        container.innerHTML = ''; // Ensure the list is empty
+        return; 
     }
 
-    if (sectionContainer) sectionContainer.style.display = 'block';
+    if (sectionContainer) toggleVisibility(sectionContainer, true);
 
     container.innerHTML = '';
 
@@ -680,12 +731,12 @@ function renderAnnaQuoteUI(requests) {
     const container = document.getElementById('pending-quotes-list');
 
     if (!requests || requests.length === 0) {
-        if (sectionContainer) sectionContainer.style.display = 'none';
+        if (sectionContainer) toggleVisibility(sectionContainer, false);
         container.innerHTML = '';
         return;
     }
 
-    if (sectionContainer) sectionContainer.style.display = 'block';
+    if (sectionContainer) toggleVisibility(sectionContainer, true);
 
     container.innerHTML = '';
 
@@ -699,13 +750,17 @@ function renderAnnaQuoteUI(requests) {
         let statusClass = 'status-tag-default';
         let actionButtonsHtml = '';
         
-        if (status === 'quoted' || status === 'countered') {
+        if (status === 'countered') {
             statusClass = status === 'quoted' ? 'status-tag-quoted' : 'status-tag-countered';
             actionButtonsHtml = `
                 <button class="action-btn secondary-btn cancel-quote-btn" data-id="${req.quote_id}">Cancel</button>
                 <button class="action-btn secondary-btn reject-quote-btn" data-id="${req.quote_id}">Reject</button>
                 <button class="action-btn primary-btn resubmit-quote-btn" data-id="${req.quote_id}">Resubmit Quote</button>
             `;
+        } else if (status === 'quoted') {
+            statusClass = 'status-tag-quoted';
+            actionButtonsHtml = `
+                <button class="action-btn secondary-btn cancel-quote-btn" data-id="${req.quote_id}">Cancel</button>`;
         } else if (status === 'accepted') {
             statusClass = 'status-tag-accepted';
             actionButtonsHtml = `<button onclick="viewServiceOrder(${req.request_id})" class="action-btn secondary-btn">View Order</button>`
@@ -796,12 +851,12 @@ function renderAnnaBillUI(requests) {
     const container = document.getElementById('bills-list'); 
 
     if (!requests || requests.length === 0) {
-        if (sectionContainer) sectionContainer.style.display = 'none';
+        if (sectionContainer) toggleVisibility(sectionContainer, false);
         if (container) container.innerHTML = '';
         return;
     }
 
-    if (sectionContainer) sectionContainer.style.display = 'block';
+    if (sectionContainer) toggleVisibility(sectionContainer, true);
     container.innerHTML = ''; 
 
     requests.forEach(bill => {
@@ -1137,11 +1192,11 @@ function renderClientRejectedRequests(requests) {
     container.innerHTML = ''; 
 
     if (rejectedRequests.length === 0) {
-        sectionContainer.style.display = 'none';
+        toggleVisibility(sectionContainer, false);
         return;
     }
 
-    sectionContainer.style.display = 'block';
+    toggleVisibility(sectionContainer, true);
 
     rejectedRequests.forEach(request => {
         const item = document.createElement('div');
@@ -1201,7 +1256,7 @@ function renderClientQuotes(requests) {
     if (!container || !sectionContainer) return;
 
     container.innerHTML = '';
-    sectionContainer.style.display = activeQuotes.length > 0 ? 'block' : 'none';
+    toggleVisibility(sectionContainer, activeQuotes.length > 0);
 
     activeQuotes.forEach(request => {
         const isActionNeeded = request.quote_status === 'quoted' || request.quote_status === 'countered';
@@ -1299,7 +1354,7 @@ function renderClientBills(requestsData) {
     if (!container || !sectionContainer) return;
 
     container.innerHTML = '';
-    sectionContainer.style.display = allBills.length > 0 ? 'block' : 'none';
+    toggleVisibility(sectionContainer, allBills.length > 0);
 
     allBills.forEach(bill => {
         const isUnpaid = bill.bill_status === 'Unpaid';

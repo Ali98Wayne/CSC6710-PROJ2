@@ -76,10 +76,10 @@ app.get('/uncommittedClients', async (req, res) => {
 });
 
 // Search for the most quotes in a month
-app.get('/monthQuotes', (request, response) => {
-    const {quoteAcceptMonth} = request.query;
+app.get('/monthYearQuotes', (request, response) => {
+    const {month, year} = request.query;
     const db = dbService.getDbServiceInstance();
-    const result =  db.acceptedMonthQuotes(quoteAcceptMonth); 
+    const result =  db.acceptedMonthYearQuotes(month, year); 
 
     result
     .then(data => response.json({data: data}))

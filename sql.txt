@@ -106,41 +106,56 @@ GROUP BY Users.user_id
 ORDER BY total_requests DESC
 LIMIT 10;
 
--- Accepted quotes in a given month query
-SELECT r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, r.quote_accept_date 
-FROM Request_Cleaning r JOIN Users u ON r.client_id = u.user_id
-WHERE MONTH(r.quote_accept_date) = 12 -- For the month of December 
-ORDER BY r.quote_accept_date DESC;
-
--- Largest job query
-SELECT r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, r.rooms 
-FROM Request_Cleaning r JOIN Users u ON r.client_id = u.user_id
-ORDER BY r.rooms DESC
-LIMIT 10;
-
--- Bad clients query
-SELECT DISTINCT u.user_id AS client_id, u.username, u.first_name, u.last_name
-FROM Users u JOIN Bills b ON u.user_id = b.client_id
-WHERE b.bill_status = 'Unpaid' AND b.due_date < (CURDATE() - INTERVAL 7 DAY);
-
 -- Uncommitted clients query
-SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
-FROM Users u JOIN Request_Cleaning r ON u.user_id = r.client_id
-WHERE r.order_generated = 0
-GROUP BY u.user_id 
-HAVING request_count >= 3
+SELECT u.user_id, u.first_name, u.last_name, COUNT(r.request_id) AS request_count
+FROM Users u
+JOIN Request_Cleaning r ON u.user_id = r.client_id
+WHERE u.user_id NOT IN (
+SELECT DISTINCT q_accepted.client_id
+FROM Quotes q_accepted
+WHERE q_accepted.status = 'accepted'
+)
+GROUP BY u.user_id, u.first_name, u.last_name
+HAVING COUNT(r.request_id) >= 3;
+
+-- Accepted quotes in a given month query
+SELECT r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, 
+q.quote_price, q.scheduled_start, q.scheduled_end, q.quote_accept_date
+FROM Request_Cleaning r
+JOIN Users u ON r.client_id = u.user_id
+JOIN Quotes q ON q.request_id = r.request_id
+WHERE q.status = 'accepted' AND MONTH(q.quote_accept_date) = 12 AND YEAR(q.quote_accept_date) = 2025
+ORDER BY q.quote_accept_date DESC;
 
 -- Prospective clients query
-SELECT u.user_id, u.first_name, u.last_name, u.email 
-FROM Users u LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
+SELECT u.user_id, u.username, u.first_name, u.last_name, u.signup_date
+FROM Users u
+LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
 WHERE r.client_id IS NULL
+
+-- Largest job query
+SELECT r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, r.rooms
+FROM Request_Cleaning r
+JOIN Users u ON r.client_id = u.user_id
+ORDER BY r.rooms DESC
+LIMIT 10;
 
 -- Overdue bills query
 SELECT * FROM Bills
 WHERE bill_status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
 
+-- Bad clients query
+SELECT DISTINCT b.bill_id, u.user_id AS client_id, b.request_id, u.username, u.first_name, u.last_name, 
+    b.bill_amount, b.bill_status, b.due_date, b.created_at  
+FROM Users u
+JOIN Bills b ON u.user_id = b.client_id
+WHERE b.bill_status = 'Unpaid'
+AND b.due_date < (CURDATE() - INTERVAL 7 DAY);
+
 -- Good clients query
-SELECT u.user_id, u.first_name, u.last_name, u.email
-FROM Users u JOIN Bills b ON u.user_id = b.client_id
+SELECT b.bill_id, u.user_id AS client_id, b.request_id, u.username, u.first_name, u.last_name, 
+    b.bill_amount, b.bill_status, b.due_date, b.payment_date, b.created_at
+FROM Users u
+JOIN Bills b ON u.user_id = b.client_id
 GROUP BY u.user_id
 HAVING SUM(TIMESTAMPDIFF(HOUR, b.created_at, b.payment_date) > 24) = 0

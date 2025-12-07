@@ -11,7 +11,7 @@
     <h1><u>CSC 6710 - PROJECT 2:</u></h1>
 
     <!-- Sign up section -->
-    <div id="signup-section">
+    <div id="signup-section" class="conditional-content">
       <h2>Sign Up</h2>
       <p>Already have an account?
         <button id="to-login">Log in</button>
@@ -67,7 +67,7 @@
       </div>
 
     <!-- Log in section -->
-    <div id="login-section">
+    <div id="login-section" class="conditional-content">
       <h2>Login</h2>
       <p>Don't have an account?
         <button id="to-signup">Sign Up</button>
@@ -82,7 +82,7 @@
     </div>
 
     <!-- Toggleable profile section, only accessible to logged in users -->
-    <div id="profile-section">
+    <div id="profile-section" class="conditional-content">
       <div id="profile-toggle">
         <img src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile" id="profile-icon">
         <span id="profile-name"></span>
@@ -91,7 +91,7 @@
     </div>
 
     <!-- Service request section-->
-    <div id="service-request">
+    <div id="service-request" class="conditional-content"> 
       <h2>Service Request Form</h2>
       <label>Service Address:</label>
       <input type="text" id="service-address" placeholder="Service Street">
@@ -121,47 +121,47 @@
       <br><br>
       <button id="submit-button">Submit</button>
     </div>
-
+    <br>
     <!-- Clients view rejected requests, quotes, & bills sections -->
-    <div id="client-rejected-requests-section">
+    <div id="client-rejected-requests-section" class="conditional-content">
         <h2>Rejected Requests</h2>
         <div id="client-rejected-requests"></div>
     </div>
-    <div id="client-quotes-section">
+    <div id="client-quotes-section" class="conditional-content">
         <h2>Quotes</h2>
         <div id="client-quotes"></div>
     </div>
-    <div id="client-bills-section">
+    <div id="client-bills-section" class="conditional-content">
         <h2>Bills</h2>
         <div id="client-bills-list"></div>
     </div>
 
     <!-- Pending Requests & Negotiation Section (Generated for Anna) -->
-    <div id="pending-requests-section">
+    <div id="pending-requests-section" class="conditional-content">
       <h2>Pending Requests / Negotiation</h2>
       <!-- Dynamic list of pending service requests for Anna or quote negotiation for client -->
       <div id="pending-requests-list"></div>
     </div>
     <br>
     <!-- Pending Quotes & Negotiation Section (Generated for Anna) -->
-    <div id="pending-quotes-section">
+    <div id="pending-quotes-section" class="conditional-content">
       <h2>Quotes / Negotiation</h2>
       <div id="pending-quotes-list"></div>
       <br>
     </div>
     <!-- Bills & Negotiation Section (Generated for Anna) -->
-    <div id="bills-section">
+    <div id="bills-section" class="conditional-content">
       <h2>Bills List</h2>
       <div id="bills-list"></div>
       <br>
     </div>
 
     <!-- Query results section, only visible if DB USER is Anna Johnson -->
-    <div id="queries-section">
+    <div id="queries-section" class="conditional-content">
       <h2>Search Queries</h2>
       <div id="queries-controls-grid"> 
         <div class="query-group"><button id="most-service-orders-btn">Most Service Orders</button></div>
-        <div class="query-group month-search-group">
+        <div class="query-group accepted-quotes-search-group">
           <select name="Month" id="monthQuotes">
             <option value="1">January</option>
             <option value="2">February</option>
@@ -176,6 +176,7 @@
             <option value="11">November</option>
             <option value="12">December</option>
           </select>
+          <input type="number" id="yearQuotes" placeholder="Enter Year" min="2000" max="2100" required>
           <button id="month-quotes-search-btn">Accepted Quotes</button>
         </div>
         <div class="query-group"><button id="largest-job-search-btn">Largest Job Search</button></div>
@@ -186,7 +187,7 @@
         <div class="query-group"><button id="good-clients-btn">Good Clients</button></div>
       </div>
       <br>
-      <table id="query-results">
+      <table id="query-results" class="conditional-content">
         <thead></thead>
         <tbody></tbody>
       </table>

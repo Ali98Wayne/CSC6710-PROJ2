@@ -150,10 +150,7 @@ class DbService{
                   {
                      const query = `
                         SELECT
-                        Users.user_id AS client_id,
-                        Users.username,
-                        Users.first_name,
-                        Users.last_name,
+                        Users.user_id AS client_id, Users.username, Users.first_name, Users.last_name, 
                         COUNT(Request_Cleaning.request_id) AS total_requests
                         FROM Request_Cleaning
                         JOIN Users ON Request_Cleaning.client_id = Users.user_id
@@ -178,13 +175,17 @@ class DbService{
     async uncommittedClients() {
         try {
             const query = `
-                SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
+                SELECT
+                    u.user_id, u.first_name, u.last_name, COUNT(r.request_id) AS request_count
                 FROM Users u
                 JOIN Request_Cleaning r ON u.user_id = r.client_id
-                LEFT JOIN Quotes q ON q.request_id = r.request_id
-                WHERE q.status IS NULL OR q.status != 'accepted'
-                GROUP BY u.user_id, u.first_name, u.last_name, u.email
-                HAVING request_count >= 3
+                WHERE u.user_id NOT IN (
+                    SELECT DISTINCT q_accepted.client_id
+                    FROM Quotes q_accepted
+                    WHERE q_accepted.status = 'accepted'
+                )
+                GROUP BY u.user_id, u.first_name, u.last_name
+                HAVING COUNT(r.request_id) >= 3;
             `;
             const response = await new Promise((resolve, reject) => {
                 connection.query(query, (err, results) => {
@@ -200,24 +201,21 @@ class DbService{
     }
 
     // Accepted quotes in a month search query
-    async acceptedMonthQuotes(month){
+    async acceptedMonthYearQuotes(month, year){
         try{
              const response = await new Promise((resolve, reject) => 
                   {
                      const query = `
-                        SELECT 
-                        r.request_id,
-                        u.user_id AS client_id,
-                        u.username,
-                        u.first_name,
-                        u.last_name,
-                        q.quote_accept_date
+                        SELECT
+                            r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, 
+                            q.quote_price, q.scheduled_start, q.scheduled_end, q.quote_accept_date
                         FROM Request_Cleaning r
                         JOIN Users u ON r.client_id = u.user_id
-                        WHERE MONTH(q.quote_accept_date) = ? 
+                        JOIN Quotes q ON q.request_id = r.request_id
+                        WHERE q.status = 'accepted' AND MONTH(q.quote_accept_date) = ? AND YEAR(q.quote_accept_date) = ?
                         ORDER BY q.quote_accept_date DESC;
                      `;
-                     connection.query(query, [month], (err, results) => {
+                     connection.query(query, [month, year], (err, results) => {
                          if(err) reject(new Error(err.message));
                          else resolve(results);
                      });
@@ -234,7 +232,7 @@ class DbService{
     async prospectiveClients() {
         try {
             const query = `
-                SELECT u.user_id, u.first_name, u.last_name, u.email
+                SELECT u.user_id, u.username, u.first_name, u.last_name, u.signup_date
                 FROM Users u
                 LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
                 WHERE r.client_id IS NULL
@@ -259,12 +257,7 @@ class DbService{
                   {
                      const query = `
                         SELECT 
-                        r.request_id,
-                        u.user_id AS client_id,
-                        u.username,
-                        u.first_name,
-                        u.last_name,
-                        r.rooms
+                            r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, r.rooms
                         FROM Request_Cleaning r
                         JOIN Users u ON r.client_id = u.user_id
                         ORDER BY r.rooms DESC
@@ -310,7 +303,8 @@ class DbService{
                   {
                      const query = `
                         SELECT DISTINCT
-                        u.user_id AS client_id, u.username, u.first_name, u.last_name
+                            b.bill_id, u.user_id AS client_id, b.request_id, u.username, u.first_name, u.last_name, 
+                            b.bill_amount, b.bill_status, b.due_date, b.created_at  
                         FROM Users u
                         JOIN Bills b ON u.user_id = b.client_id
                         WHERE b.bill_status = 'Unpaid'
@@ -333,7 +327,9 @@ class DbService{
     async goodClients() {
         try {
             const query = `
-                SELECT u.user_id, u.first_name, u.last_name, u.email
+                SELECT
+                    b.bill_id, u.user_id AS client_id, b.request_id, u.username, u.first_name, u.last_name, 
+                    b.bill_amount, b.bill_status, b.due_date, b.payment_date, b.created_at
                 FROM Users u
                 JOIN Bills b ON u.user_id = b.client_id
                 GROUP BY u.user_id
