@@ -131,7 +131,7 @@ ORDER BY q.quote_accept_date DESC;
 SELECT u.user_id, u.username, u.first_name, u.last_name, u.signup_date
 FROM Users u
 LEFT JOIN Request_Cleaning r ON u.user_id = r.client_id
-WHERE r.client_id IS NULL
+WHERE r.client_id IS NULL;
 
 -- Largest job query
 SELECT r.request_id, u.user_id AS client_id, u.username, u.first_name, u.last_name, r.rooms
@@ -142,7 +142,7 @@ LIMIT 10;
 
 -- Overdue bills query
 SELECT * FROM Bills
-WHERE bill_status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY
+WHERE bill_status = 'Unpaid' AND due_date < NOW() - INTERVAL 7 DAY;
 
 -- Bad clients query
 SELECT DISTINCT b.bill_id, u.user_id AS client_id, b.request_id, u.username, u.first_name, u.last_name, 
@@ -158,4 +158,4 @@ SELECT b.bill_id, u.user_id AS client_id, b.request_id, u.username, u.first_name
 FROM Users u
 JOIN Bills b ON u.user_id = b.client_id
 GROUP BY u.user_id
-HAVING SUM(TIMESTAMPDIFF(HOUR, b.created_at, b.payment_date) > 24) = 0
+HAVING SUM(TIMESTAMPDIFF(HOUR, b.created_at, b.payment_date) > 24) = 0;
