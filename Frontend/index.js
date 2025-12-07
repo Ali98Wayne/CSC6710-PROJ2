@@ -238,7 +238,6 @@ document.addEventListener("DOMContentLoaded", function() {
         const profileSection = document.querySelector("#profile-section");
         const profileName = document.querySelector("#profile-name");
         const serviceRequest = document.querySelector("#service-request");
-        const serviceOrdersList = document.querySelector("#service-orders-list");
         const queriesSection = document.querySelector("#queries-section");
         const queryResults = document.querySelector("#query-results");
         const queryBody = document.querySelector('#query-results tbody');
@@ -256,7 +255,6 @@ document.addEventListener("DOMContentLoaded", function() {
             profileName.textContent = currentUser;
             logoutBtn.style.display = "none";
             serviceRequest.style.display = "block";
-            serviceOrdersList.style.display = "none";
             queriesSection.style.display = "none";
             queryResults.style.display = "none";
             clientRequestsSection.style.display = "block";
@@ -271,7 +269,6 @@ document.addEventListener("DOMContentLoaded", function() {
             signupSection.style.display = "none";
             loginSection.style.display = "none";
             serviceRequest.style.display = "none";
-            serviceOrdersList.style.display = "block";
             queriesSection.style.display = 'block';
             clientRequestsSection.style.display = "none";
             clientQuotesSection.style.display = "none";
@@ -289,7 +286,6 @@ document.addEventListener("DOMContentLoaded", function() {
             photoFields.innerHTML = '';
             photoNum = 0;
             addPhotoButton.style.display = 'inline-block';
-            serviceOrdersList.style.display = "none";
             queriesSection.style.display = "none";
             queryResults.style.display = "none";
             if (queryBody) queryBody.innerHTML = '';
@@ -895,11 +891,11 @@ function renderAnnaBillUI(requests) {
         // Attach event listeners only if the bill exists
         if (billIsGenerated) {
             billCard.querySelector('.view-bill-btn')
-            .addEventListener('click', () => viewServiceBill(bill.request_id));
+            .addEventListener('click', () => viewServiceBill(bill.request_id, bill.bill_id));
 
             if (showReviseButton) {
                 billCard.querySelector('.revise-action-btn')
-                .addEventListener('click', () => reviseBill(bill.request_id));
+                .addEventListener('click', () => reviseBill(bill.bill_id));
             }
         }
 
@@ -1077,9 +1073,9 @@ function annaCancelQuote(quoteId) {
 }
 
 // Function for Anna to revise the bill amount and add a note
-async function reviseBill(requestId) {
+async function reviseBill(billId) {
     try {
-        const response = await fetch(`/getBill/${requestId}`);
+        const response = await fetch(`/getBill/${billId}`);
         const data = await response.json();
 
         if (!data.success || !data.request || !data.request.bill_id) {
@@ -1664,7 +1660,8 @@ async function viewServiceOrder(requestId) {
       .replace("{{preferred_date}}", new Date(service_req.preferred_date).toLocaleString())
       .replace("{{budget}}", `$${Number(service_req.proposed_budget).toFixed(2)}`)
       .replace("{{notes_section}}", service_req.notes ? `<div class="section-title">Notes</div><p>${service_req.notes}</p>` : "")
-      .replace("{{photos_section}}", service_req.photo_urls ? `<div class="section-title">Photo URLs</div><ul>${JSON.parse(service_req.photo_urls).map(u=>`<li>${u}</li>`).join('')}</ul>` : "")
+      .replace("{{photos_section}}", service_req.photo_urls && JSON.parse(service_req.photo_urls).length > 0
+        ? `<div class="section-title">Photo URLs</div><ul>${JSON.parse(service_req.photo_urls).map(u=>`<li>${u}</li>`).join('')}</ul>` : "")
       .replace("{{quote_history_section}}", quoteHistoryHTML);
       
     // Open the serivce order in a new tab
@@ -1681,7 +1678,7 @@ async function viewServiceBill(requestId, billId) {
   try {
     const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
     const service_request_data = await get_service_response.json();
-
+    
     if (!service_request_data.success) {
       alert("Failed to load service request details");
       return;
@@ -1724,7 +1721,7 @@ async function viewServiceBill(requestId, billId) {
 
     // Write bill data to the bill template
     billTemplate = billTemplate
-      .replace("{{generated_date}}", new Date().toLocaleDateString())
+      .replace("{{generated_date}}", new Date(service_bill.last_updated).toLocaleString())
       .replace("{{bill_id}}", billId)
       .replace("{{request_id}}", service_bill.request_id)
       .replace("{{bill_status}}", service_bill.bill_status)
@@ -1766,7 +1763,8 @@ function buildQuoteHistoryHTML(historyEntries) {
                 <div><strong>Scheduled Start:</strong> ${new Date(entry.scheduled_start).toLocaleString()}</div>
                 <div><strong>Scheduled End:</strong> ${new Date(entry.scheduled_end).toLocaleString()}</div>
                 <div><strong>Status:</strong> ${entry.status}</div>
-                <div><strong>Note:</strong> ${entry.note || "—"}</div>
+                <div><strong>Client Note:</strong> ${entry.note || "—"}</div>
+                <div><strong>Anna Note:</strong> ${entry.anna_note || "—"}</div>
             </div>
             <br>
         `;
@@ -1784,7 +1782,7 @@ function buildBillHistoryHTML(historyEntries) {
     html += `
       <div class="history-entry">
         <div><strong>Responder: ${entry.responder_type}</strong> – ${new Date(entry.created_at).toLocaleString()}</div>
-        <div><strong>New Amount:</strong> $${Number(entry.new_amount).toFixed(2)}</div>
+        <div><strong>New Amount:</strong> $${Number(entry.bill_amount).toFixed(2)}</div>
         <div><strong>Bill Status:</strong> ${entry.bill_status}</div>
         <div><strong>Note:</strong> ${entry.note || "—"}</div>
       </div>

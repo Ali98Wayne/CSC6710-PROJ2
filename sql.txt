@@ -90,7 +90,7 @@ CREATE TABLE Bill_History (
     client_id INT NOT NULL,
     responder_type ENUM('Anna','Client') NOT NULL,
     note TEXT,
-    new_amount DECIMAL(10,2),
+    bill_amount DECIMAL(10,2),
     bill_status ENUM('Paid', 'Unpaid', 'Disputed'),
     due_date DATE NOT NULL,
     payment_date DATE,

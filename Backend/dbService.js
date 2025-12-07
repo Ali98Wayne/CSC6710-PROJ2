@@ -645,7 +645,7 @@ class DbService{
 
             await new Promise((resolve, reject) => {
                 const q = `
-                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date)
+                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, bill_amount, bill_status, due_date)
                     VALUES (?, ?, 'Anna', ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY))
                 `;
                 connection.query(q, [billId, clientId, note ?? null, newAmount ?? null ], (err, res) => err ? reject(err) : resolve(res));
@@ -817,7 +817,7 @@ class DbService{
             // Add an entry to the bill history
             await new Promise((resolve, reject) => {
                 const q = `
-                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date)
+                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, bill_amount, bill_status, due_date)
                     VALUES (?, ?, 'Client', ?, ?, 'Disputed', DATE_ADD(CURDATE(), INTERVAL 7 DAY))
                 `;
                 connection.query(q, [billId, billData.client_id, note, billData.bill_amount], (err, res) => err ? reject(err) : resolve(res));
@@ -853,7 +853,7 @@ class DbService{
             // Add an entry to the bill history
             await new Promise((resolve, reject) => {
                 const q = `
-                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date, payment_date)
+                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, bill_amount, bill_status, due_date, payment_date)
                     VALUES (?, ?, 'Client', ?, ?, ?, ?, ?)
                 `;
                 connection.query(q, [billId, billData.client_id, billData.note, billData.bill_amount, billData.bill_status,
@@ -995,7 +995,7 @@ class DbService{
 
             await new Promise((resolve, reject) => {
                 const q = `
-                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date)
+                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, bill_amount, bill_status, due_date)
                     VALUES (?, ?, 'Anna', ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY))
                 `;
                 connection.query(q, [billId, billInfo.client_id, billInfo.note ?? null, billInfo.bill_amount ?? null ], (err, res) => err ? reject(err) : resolve(res));
