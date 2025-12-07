@@ -31,9 +31,6 @@ CREATE TABLE Request_Cleaning(
    notes TEXT NULL,
    photo_urls JSON NULL,
    request_date DATE DEFAULT CURRENT_DATE,
-   quote_accept_date DATE,
-   order_generated TINYINT(1) DEFAULT 0,
-   bill_generated TINYINT(1) DEFAULT 0,
    status ENUM('pending','quoted','rejected') DEFAULT 'pending',
    anna_note TEXT,
    FOREIGN KEY (client_id) REFERENCES Users(user_id)
@@ -50,6 +47,7 @@ CREATE TABLE Quotes (
     note TEXT,
     response_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     status ENUM('pending','quoted','accepted','rejected','countered','canceled') DEFAULT 'pending',
+    quote_accept_date DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),
     CONSTRAINT fk_responder FOREIGN KEY (client_id) REFERENCES Users(user_id)
@@ -64,6 +62,7 @@ CREATE TABLE Bills (
     due_date DATE NOT NULL,
     payment_date DATE,              -- Filled when client pays
     note TEXT,                      -- Any additional note (dispute, explanation)
+    bill_generated TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_bill_request FOREIGN KEY (request_id) REFERENCES Request_Cleaning(request_id),

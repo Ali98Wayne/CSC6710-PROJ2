@@ -174,15 +174,16 @@ class DbService{
         }
     }
 
-    // Uncommitted clients search query: 3+ requests but never completed an order
+    // Uncommitted clients search query: 3+ requests but never completed an order (never accepted a quote)
     async uncommittedClients() {
         try {
             const query = `
                 SELECT u.user_id, u.first_name, u.last_name, u.email, COUNT(r.request_id) AS request_count
                 FROM Users u
                 JOIN Request_Cleaning r ON u.user_id = r.client_id
-                WHERE r.order_generated = 0
-                GROUP BY u.user_id
+                LEFT JOIN Quotes q ON q.request_id = r.request_id
+                WHERE q.status IS NULL OR q.status != 'accepted'
+                GROUP BY u.user_id, u.first_name, u.last_name, u.email
                 HAVING request_count >= 3
             `;
             const response = await new Promise((resolve, reject) => {
@@ -210,11 +211,11 @@ class DbService{
                         u.username,
                         u.first_name,
                         u.last_name,
-                        r.quote_accept_date
+                        q.quote_accept_date
                         FROM Request_Cleaning r
                         JOIN Users u ON r.client_id = u.user_id
-                        WHERE MONTH(r.quote_accept_date) = ? 
-                        ORDER BY r.quote_accept_date DESC;
+                        WHERE MONTH(q.quote_accept_date) = ? 
+                        ORDER BY q.quote_accept_date DESC;
                      `;
                      connection.query(query, [month], (err, results) => {
                          if(err) reject(new Error(err.message));
@@ -356,15 +357,15 @@ class DbService{
         try {
             const response = await new Promise((resolve, reject) => {
                 const query = `
-                    SELECT r.request_id, r.client_id, r.service_address_street, r.service_address_city, r.service_address_state,
-                        r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
-                        r.notes, r.status, u.username
-                    FROM Request_Cleaning r
-                    INNER JOIN Users u ON r.client_id = u.user_id
-                    LEFT JOIN Quotes q 
-                        ON r.request_id = q.request_id AND q.responder_type='Anna'
-                    WHERE r.status = 'pending'
-                    ORDER BY r.request_date ASC
+                        SELECT r.request_id, r.client_id, r.service_address_street, r.service_address_city, r.service_address_state,
+                            r.service_address_zip, r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget,
+                            r.notes, r.status, u.username
+                        FROM Request_Cleaning r
+                        INNER JOIN Users u ON r.client_id = u.user_id
+                        LEFT JOIN Quotes q 
+                            ON r.request_id = q.request_id AND q.responder_type='Anna'
+                        WHERE r.status = 'pending'
+                        ORDER BY r.request_date ASC
                     `;
                 connection.query(query, (err, results) => {
                     if (err) reject(err);
@@ -383,11 +384,17 @@ class DbService{
         try {
             const response = await new Promise((resolve, reject) => {
                 const query = `
-                    SELECT q.*, u.username
-                    FROM Quotes q
-                    LEFT JOIN Users u ON q.client_id = u.user_id
-                    WHERE (q.status = 'quoted' OR q.status = 'countered')
-                    ORDER BY q.created_at ASC;
+                        SELECT 
+                            q.*, u.username, COALESCE(b.bill_generated, 0) AS bill_generated 
+                        FROM 
+                            Quotes q
+                        LEFT JOIN 
+                            Users u ON q.client_id = u.user_id
+                        LEFT JOIN 
+                            Bills b ON q.request_id = b.request_id
+                        WHERE 
+                            (q.status = 'quoted' OR q.status = 'countered' OR q.status = 'accepted')
+                        ORDER BY q.created_at ASC;
                     `;
                 connection.query(query, (err, results) => {
                     if (err) reject(err);
@@ -407,7 +414,7 @@ class DbService{
         const response = await new Promise((resolve, reject) => {
             const query = `
                 SELECT b.bill_id, b.request_id, b.client_id, b.bill_amount, b.bill_status, b.due_date, b.payment_date, 
-                    b.note, u.first_name, u.last_name, u.username
+                    b.note, b.bill_generated, u.first_name, u.last_name, u.username
                 FROM Bills b
                 JOIN Users u ON b.client_id = u.user_id
                 ORDER BY 
@@ -667,9 +674,9 @@ class DbService{
                 const query = `
                     SELECT 
                         r.request_id, r.service_address_street, r.service_address_city, r.service_address_state, r.service_address_zip,
-                        r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget, r.notes, r.order_generated, r.bill_generated,
-                        r.status AS request_status, u.username, q.quote_id, q.quote_price, q.scheduled_start, q.scheduled_end,
-                        q.note AS quote_note, q.status AS quote_status, q.responder_type, q.response_date
+                        r.cleaning_type, r.rooms, r.preferred_date, r.proposed_budget, r.notes, r.status AS request_status, u.username, 
+                        q.quote_id, q.quote_price, q.scheduled_start, q.scheduled_end, q.note AS quote_note, q.status AS quote_status, 
+                        q.quote_accept_date, q.responder_type, q.response_date
                     FROM Request_Cleaning r
                     JOIN Users u ON r.client_id = u.user_id
                     LEFT JOIN Quotes q ON q.request_id = r.request_id
@@ -706,7 +713,7 @@ class DbService{
     async acceptQuote(requestId) {
         try {
             await new Promise((resolve, reject) => {
-                const query = `UPDATE Quotes SET status = 'accepted' WHERE request_id = ?`;
+                const query = `UPDATE Quotes SET status = 'accepted', quote_accept_date = CURRENT_TIMESTAMP() WHERE request_id = ?`;
                 connection.query(query, [requestId], (err, result) => {
                     if (err) reject(err);
                     else resolve(result);
@@ -896,12 +903,12 @@ class DbService{
         }
     }
 
-    // Function to get bill info used in view a service bill & revising a bill
-    async getBill(requestId) {
+    // Function to get quote info used in viewing a service order
+    async getQuote(requestId) {
         try {
              const response = await new Promise((resolve, reject) => 
                   {
-                     const query = `SELECT * FROM Bills WHERE request_id = ?;`;
+                     const query = `SELECT * FROM Quotes WHERE request_id = ?;`;
                      connection.query(query, [requestId], (err, results) => {
                          if(err) reject(new Error(err.message));
                          else resolve(results);
@@ -915,24 +922,26 @@ class DbService{
         }
     }
 
-    // Function to flip the order_generated status from 0 to 1 only if it was 0 beforehand
-    async generateServiceOrder(requestId) {
+    // Function to get bill info used in view a service bill & revising a bill
+    async getBill(billId) {
         try {
-            await new Promise((resolve, reject) => {
-                const query = `UPDATE Request_Cleaning SET order_generated = 1 WHERE request_id = ? AND order_generated = 0;`;
-                connection.query(query, [requestId], (err, results) => {
-                    if (err) reject(new Error(err.message));
-                    else resolve(results);
-                });
-            });
+             const response = await new Promise((resolve, reject) => 
+                  {
+                     const query = `SELECT * FROM Bills WHERE bill_id = ?;`;
+                     connection.query(query, [billId], (err, results) => {
+                         if(err) reject(new Error(err.message));
+                         else resolve(results);
+                     });
+                  }
+             );
 
-            return { success: true };
+            return response[0];
         } catch (err) {
             throw err;
         }
     }
 
-    // Function to flip the bill_generated status from 0 to 1 only if it was 0 beforehand    
+    // Function to flip the bill_generated status from 0 to 1 only if it was 0 beforehand & add an entry to the bill history 
     async generateServiceBill(requestId) {
         try {
             const requestInfo = await new Promise((resolve, reject) => {
@@ -947,20 +956,12 @@ class DbService{
                 });
             });
 
-            if (!requestInfo) {
-                throw new Error("Request not found.");
-            }
-
-            const { client_id, proposed_budget } = requestInfo;
-
-            const insertResult = await new Promise((resolve, reject) => {
+            const insertBillResult = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO Bills (request_id, client_id, bill_amount, bill_status, due_date)
                     VALUES (?, ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY));
                 `;
-                connection.query(
-                    query,
-                    [requestId, client_id, proposed_budget],
+                connection.query(query,[requestId, requestInfo.client_id, requestInfo.proposed_budget],
                     (err, result) => {
                         if (err) reject(new Error(err.message));
                         else resolve(result);
@@ -968,12 +969,12 @@ class DbService{
                 );
             });
 
-            const billId = insertResult.insertId;
+            const billId = insertBillResult.insertId;
 
             await new Promise((resolve, reject) => {
                 const query = `
-                    UPDATE Request_Cleaning
-                    SET bill_generated = 1
+                    UPDATE Bills
+                    SET bill_generated = 1, bill_status = 'Unpaid'
                     WHERE request_id = ? AND bill_generated = 0;
                 `;
                 connection.query(query, [requestId], (err, result) => {
@@ -982,16 +983,22 @@ class DbService{
                 });
             });
 
-            await new Promise((resolve, reject) => {
+            const billInfo = await new Promise((resolve, reject) => {
                 const query = `
-                    UPDATE Bills 
-                    SET bill_status = 'Unpaid'
-                    WHERE request_id = ?;
+                    SELECT * FROM Bills WHERE request_id = ?;
                 `;
-                connection.query(query, [requestId], (err, result) => {
+                connection.query(query, [requestId], (err, rows) => {
                     if (err) reject(new Error(err.message));
-                    else resolve(result);
+                    else resolve(rows[0]);
                 });
+            });
+
+            await new Promise((resolve, reject) => {
+                const q = `
+                    INSERT INTO Bill_History (bill_id, client_id, responder_type, note, new_amount, bill_status, due_date)
+                    VALUES (?, ?, 'Anna', ?, ?, 'Unpaid', DATE_ADD(CURDATE(), INTERVAL 7 DAY))
+                `;
+                connection.query(q, [billId, billInfo.client_id, billInfo.note ?? null, billInfo.bill_amount ?? null ], (err, res) => err ? reject(err) : resolve(res));
             });
 
             return { success: true, billId };
@@ -1044,38 +1051,6 @@ class DbService{
 
             return response;
         } catch (err) {
-            throw err;
-        }
-    }
-
-    async listServiceOrders(){
-        try {
-             const response = await new Promise((resolve, reject) => {
-                const query = `
-                    SELECT 
-                        r.request_id, r.client_id, r.service_address_street, r.service_address_city, 
-                        r.service_address_state, r.service_address_zip, r.cleaning_type, r.rooms, 
-                        r.preferred_date, r.proposed_budget, r.request_date, r.order_generated, r.bill_generated,
-                        q.status AS quote_status  
-                    FROM 
-                        Request_Cleaning r
-                    LEFT JOIN 
-                        Quotes q ON r.request_id = q.request_id 
-                    GROUP BY 
-                        r.request_id, r.client_id, r.service_address_street, r.service_address_city, 
-                        r.service_address_state, r.service_address_zip, r.cleaning_type, r.rooms, 
-                        r.preferred_date, r.proposed_budget, r.request_date, r.order_generated, r.bill_generated, 
-                        q.status
-                    ORDER BY r.request_id DESC
-                `;
-                connection.query(query, (err, results) => {
-                    if(err) reject(new Error(err.message));
-                    else resolve(results);
-                });
-            });
-
-            return response;
-         } catch(err) {
             throw err;
         }
     }

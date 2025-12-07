@@ -385,35 +385,6 @@ app.post('/payBill', async (req, res) => {
     }
 });
 
-// List all service order requests to Anna Johnson
-app.get('/listServiceOrders', async (request, response) => {
-    const db = dbService.getDbServiceInstance();
-    const result =  db.listServiceOrders(); 
-
-    result
-    .then(data => response.json({data}))
-    .catch(err => console.log(err));
-});
-
-// Generate a service order corresponding to a specific client from the service order list
-app.get('/generateServiceOrder/:requestId', async (request, response) => {
-  const { requestId } = request.params;
-  const db = dbService.getDbServiceInstance();
-
-  try {
-    const result = await db.generateServiceOrder(requestId);
-
-    if (!result) {
-      return response.json({ success: false, error: "Service Request Not Found" });
-    }
-
-    response.json({ success: true, request: result });
-  } catch (err) {
-    console.error(err);
-    response.json({ success: false, error: err.message });
-  }
-});
-
 // Generate a service bill corresponding to a specific client from the service order list
 app.get('/generateServiceBill/:requestId', async (request, response) => {
   const { requestId } = request.params;
@@ -471,13 +442,32 @@ app.get('/getRequest/:requestId', async (request, response) => {
   }
 });
 
-// Get a service bill corresponding to a specific request ID
-app.get('/getBill/:requestId', async (request, response) => {
+// Get a quote corresponding to a specific request ID
+app.get('/getQuote/:requestId', async (request, response) => {
   const { requestId } = request.params;
   const db = dbService.getDbServiceInstance();
 
   try {
-    const result = await db.getBill(requestId);
+    const result = await db.getQuote(requestId);
+
+    if (!result) {
+      return response.json({ success: false, error: "Service Quote Not Found" });
+    }
+
+    response.json({ success: true, request: result });
+  } catch (err) {
+    console.error(err);
+    response.json({ success: false, error: err.message });
+  }
+});
+
+// Get a service bill corresponding to a specific request ID
+app.get('/getBill/:billId', async (request, response) => {
+  const { billId } = request.params;
+  const db = dbService.getDbServiceInstance();
+
+  try {
+    const result = await db.getBill(billId);
 
     if (!result) {
       return response.json({ success: false, error: "Service Bill Not Found" });

@@ -210,16 +210,16 @@ button:hover {
     background-color: #ff4d4d; /* RED for Rejected/Disputed */
     color: #fff;
 }
-.status-tag-unpaid, .status-tag-countered {
-    background-color: #ffaa00; /* ORANGE/YELLOW for Unpaid/Countered */
+.status-tag-unpaid, .status-tag-pending, .status-tag-countered {
+    background-color: #ffaa00; /* ORANGE/YELLOW for Unpaid/Pending/Countered */
     color: #000;
 }
-.status-tag-paid, .status-tag-quoted {
-    background-color: #3cb371; /* GREEN for Accepted/Paid */
+.status-tag-paid, .status-tag-accepted {
+    background-color: #3cb371; /* GREEN for Paid/Accepted */
     color: #fff;
 }
-.status-tag-pending {
-    background-color: #00bcd4; /* Blue for Pending */
+.status-tag-quoted {
+    background-color: #00bcd4; /* BLUE for Quoted */
     color: #fff;
 }
 
@@ -588,10 +588,9 @@ button:hover {
     color: #1e1e1e;
 }
 .status-tag-disputed { background-color: #ff4d4d; } /* Red */ 
-.status-tag-unpaid { background-color: #ffaa00; }    /* Bright Yellow/Amber */
+.status-tag-unpaid, .status-tag-pending { background-color: #ffaa00; }    /* Bright Yellow/Amber */
 .status-tag-paid { background-color: #3cb371; }      /* Green */
 .status-tag-default { background-color: #9e9e9e; }   /* Gray */
-.status-tag-pending { background-color: #00bcd4; }   /* Bright Cyan */ 
 
 /* Body section */
 .card-body {

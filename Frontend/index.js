@@ -355,12 +355,6 @@ document.addEventListener("DOMContentLoaded", function() {
         updateUI();
     });
 
-    // Load a list of service orders for Anna Johnson
-    fetch('http://localhost:5050/listServiceOrders')
-    .then(response => response.json())
-    .then(result => serviceOrdersList(result.data))
-    .catch(err => console.error(err));
-
     addPhotoButton.addEventListener('click', function() {
         if (photoNum < photosMax) {
             photoNum++;
@@ -589,155 +583,6 @@ function searchResultsTable(query_data, columnsToShow = []) {
     `).join('');
 }
 
-// Function for showing a list of service requests to Anna Johnson
-function serviceOrdersList(data) {
-    const tableBody = document.querySelector('#service-orders-list tbody');
-
-    if (!data || data.length === 0) {
-        tableBody.innerHTML = "<tr><td class='no-data' colspan='7'>No Service Order Requests</td></tr>";
-        return;
-    }
-
-    let tableHtml = "";
-
-    data.forEach(({ request_id, client_id, service_address_street, service_address_city,
-        service_address_state, service_address_zip, cleaning_type, rooms, preferred_date, 
-        proposed_budget, request_date, order_generated, bill_generated, quote_status}) => {
-        tableHtml += "<tr>";
-        tableHtml += `<td>${request_id}</td>`;
-        tableHtml += `<td>${client_id}</td>`;
-        tableHtml += `<td>${service_address_street}</td>`;
-        tableHtml += `<td>${service_address_city}</td>`;
-        tableHtml += `<td>${service_address_state}</td>`;
-        tableHtml += `<td>${service_address_zip}</td>`;
-        tableHtml += `<td>${cleaning_type}</td>`;
-        tableHtml += `<td>${rooms}</td>`;
-        tableHtml += `<td>${new Date(preferred_date).toLocaleString()}</td>`;
-        tableHtml += `<td>${proposed_budget}</td>`;
-        tableHtml += `<td>${new Date(request_date).toLocaleDateString()}</td>`;
-        
-        const isQuoteAccepted = quote_status === 'accepted';
-        let generateOrderColumnHtml = '';
-        let generateBillColumnHtml = '';
-
-        // LOGIC FOR GENERATE ORDER COLUMN
-        if (order_generated == 1) {
-            // Case 1: Order is already generated
-            generateOrderColumnHtml = `<button class="generate-order-btn" disabled>Order Generated</button>`;
-        } else if (isQuoteAccepted) {
-            // Case 2: Quote is accepted, order is not generated. Show active button.
-            generateOrderColumnHtml = `<button class="generate-order-btn" data-id="${request_id}">Generate Order</button>`;
-        } else {
-            // Case 3: Quote is not yet accepted.
-            generateOrderColumnHtml = `<span>Order Pending Quote Approval</span>`;
-        }
-        
-        // LOGIC FOR GENERATE BILL COLUMN (Depends on Order Status)
-        if (bill_generated == 1) {
-            // Case 1: Bill is already generated
-            generateBillColumnHtml = `<button class="generate-bill-btn" disabled>Bill Generated</button>`;
-        } else if (order_generated == 1) {
-            // Case 2: Order is generated, bill is not. Show active button.
-            generateBillColumnHtml = `<button class="generate-bill-btn" data-id="${request_id}">Generate Bill</button>`;
-        } else {
-            // Case 3: Order is not generated yet (pre-requisite failed).
-            generateBillColumnHtml = `<span>Bill Pending Service Order</span>`;
-        }
-        
-        tableHtml += `<td>${generateOrderColumnHtml}</td>`;        
-        tableHtml += `<td>${generateBillColumnHtml}</td>`;
-        // Show the view order button
-        tableHtml += `<td>${order_generated == 1 ?
-            `<button class="view-order-btn" data-id="${request_id}">View Order</button>` : `<span>Service Order is Pending</span>`}</td>`;
-
-        // Show View Bill AND Revise Bill buttons if generated
-        if (bill_generated == 1) {
-            tableHtml += `<td>
-                <button class="view-bill-btn" data-id="${request_id}">View Bill</button>
-                <button class="revise-order-btn" data-id="${request_id}" style="background-color: #ffc107; color: #000; margin-top: 5px;">Revise Bill</button>
-            </td>`;
-        } else {
-            tableHtml += `<td><span>Service Bill is Pending</span></td>`;
-        }
-        tableHtml += "</tr>";
-    });
-
-    tableBody.innerHTML = tableHtml;
-
-    // Attach event listeners to the generate order buttons
-    document.querySelectorAll('.generate-order-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const requestId = e.target.dataset.id;
-            try {
-            const response = await fetch(`http://localhost:5050/generateServiceOrder/${requestId}`);
-            const data = await response.json();
-                if (!data.success) {
-                    alert("Failed to load service request details");
-                    return;
-                } else {
-                    alert(`Generated Order for Request: ${requestId}`);
-                    // Refresh the service orders list so the "View Bill" button appears
-                    fetch('http://localhost:5050/listServiceOrders')
-                    .then(response => response.json())
-                    .then(result => serviceOrdersList(result.data))
-                    .catch(err => console.error(err));
-                }
-            } catch (err) {
-                alert(`Error loading service request: ${err.message}`);
-            }
-        });
-    });
-
-    // Attach event listeners to the generate bill buttons
-    document.querySelectorAll('.generate-bill-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const requestId = e.target.dataset.id;
-            try {
-            const response = await fetch(`http://localhost:5050/generateServiceBill/${requestId}`);
-            const data = await response.json();
-                if (!data.success) {
-                    alert("Failed to load service request details");
-                    return;
-                } else { 
-                    alert(`Generated Bill for Request: ${requestId}`);
-                    // Refresh the service orders list so the "View Bill" button appears
-                    fetch('http://localhost:5050/listServiceOrders')
-                    .then(response => response.json())
-                    .then(result => serviceOrdersList(result.data))
-                    .catch(err => console.error(err));
-                }
-            } catch (err) {
-                alert(`Error loading service request: ${err.message}`);
-            }
-        });
-    });
-
-    // Attach event listeners to the view order buttons
-    document.querySelectorAll('.view-order-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const requestId = e.target.dataset.id;
-            await viewServiceOrder(requestId);
-        });
-    });
-
-    // Attach event listeners to the view bill buttons
-    document.querySelectorAll('.view-bill-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const requestId = e.target.dataset.id;
-            await viewServiceBill(requestId);
-        });
-    });
-
-    // Attach event listeners to the REVISE bill buttons
-    document.querySelectorAll('.revise-order-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            const requestId = e.target.dataset.id;
-            // We need to fetch the bill ID first because this table only has Request ID
-            await reviseBill(requestId);
-        });
-    });
-}
-
 // Function for Anna Quotes view to pre-fill Start & End DATETIME type fields
 function formatDateTimeLocal(sqlDateTimeString) {
     if (!sqlDateTimeString) return '';
@@ -855,13 +700,28 @@ function renderAnnaQuoteUI(requests) {
         const formattedStart = formatDateTimeLocal(req.scheduled_start);
         const formattedEnd = formatDateTimeLocal(req.scheduled_end);
         const status = req.status.toLowerCase();
-        let statusClass = 'status-tag-default'; // Styling for quote status, applies to requests & bills too in the other renderAnna functions
-
-        if (status === 'quoted') {
-            statusClass = 'status-tag-quoted'; 
-            buttonText = 'Resolve Dispute';
-        } else if (status === 'countered') {
-            statusClass = 'status-tag-countered'; 
+        let statusClass = 'status-tag-default';
+        let actionButtonsHtml = '';
+        
+        if (status === 'quoted' || status === 'countered') {
+            statusClass = status === 'quoted' ? 'status-tag-quoted' : 'status-tag-countered';
+            actionButtonsHtml = `
+                <button class="action-btn secondary-btn cancel-quote-btn" data-id="${req.quote_id}">Cancel</button>
+                <button class="action-btn secondary-btn reject-quote-btn" data-id="${req.quote_id}">Reject</button>
+                <button class="action-btn primary-btn resubmit-quote-btn" data-id="${req.quote_id}">Resubmit Quote</button>
+            `;
+        } else if (status === 'accepted') {
+            statusClass = 'status-tag-accepted';
+            actionButtonsHtml = `<button onclick="viewServiceOrder(${req.request_id})" class="action-btn secondary-btn">View Order</button>`
+            
+            if (req.bill_generated == 1) {
+                actionButtonsHtml += `<button class="action-btn secondary-btn" disabled>Bill Generated</button>`;
+            } else {
+                actionButtonsHtml += `
+                    <button class="action-btn secondary-btn cancel-quote-btn" data-id="${req.quote_id}">Cancel</button>
+                    <button class="action-btn primary-btn generate-bill-btn" data-id="${req.request_id}">Generate Bill</button>
+                `;
+            }
         }
 
         div.innerHTML = `
@@ -874,7 +734,7 @@ function renderAnnaQuoteUI(requests) {
                 <span class="status-tag ${statusClass}">${req.status}</span>
             </div>
             
-            <div class="card-body quote-form-body">             
+            <div class="card-body quote-form-body">
                 <div class="input-group">
                     <label for="quote-price-${req.quote_id}">Price ($):</label>
                     <input type="number" value="${req.quote_price}" id="quote-price-${req.quote_id}">
@@ -897,26 +757,44 @@ function renderAnnaQuoteUI(requests) {
             </div>
 
             <div class="card-actions action-group">
-                <button class="action-btn secondary-btn cancel-quote-btn">Cancel</button>
-                <button class="action-btn secondary-btn reject-quote-btn">Reject</button>
-                <button class="action-btn primary-btn resubmit-quote-btn">Resubmit Quote</button>
+                ${actionButtonsHtml} 
             </div>
         `;
 
-        div.querySelector('.resubmit-quote-btn')
-            .addEventListener('click', () => resubmitQuote(req.quote_id));
+        const generateBillBtn = div.querySelector('.generate-bill-btn');
+        if (generateBillBtn) {
+            generateBillBtn.addEventListener('click', function(event) {
+                const button = event.currentTarget;
+                
+                // Disable the button immediately to prevent re-clicks
+                button.disabled = true;
+                button.textContent = 'Generating...'; 
+                
+                // Call the bill generation function
+                generateServiceBill(req.request_id);
+            });
+        }
+        
+        const resubmitBtn = div.querySelector('.resubmit-quote-btn');
+        if (resubmitBtn) {
+            resubmitBtn.addEventListener('click', () => resubmitQuote(req.quote_id));
+        }
 
-        div.querySelector('.reject-quote-btn')
-            .addEventListener('click', () => rejectQuote(req.quote_id));
+        const rejectBtn = div.querySelector('.reject-quote-btn');
+        if (rejectBtn) {
+            rejectBtn.addEventListener('click', () => rejectQuote(req.quote_id));
+        }
 
-        div.querySelector('.cancel-quote-btn')
-            .addEventListener('click', () => annaCancelQuote(req.quote_id));
+        const cancelBtn = div.querySelector('.cancel-quote-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => annaCancelQuote(req.quote_id));
+        }
 
         container.appendChild(div);
     });
 }
 
-// Allows Anna to view all bills
+// Allows Anna to view all bills (simplified from bill generation logic)
 function renderAnnaBillUI(requests) {
     const sectionContainer = document.getElementById('bills-section');
     const container = document.getElementById('bills-list'); 
@@ -951,15 +829,32 @@ function renderAnnaBillUI(requests) {
         
         let paymentDateRow = '';
         if (status === 'paid' && bill.payment_date) {
-            const paidDate = new Date(bill.payment_date).toLocaleDateString();
-            
-            paymentDateRow = `
-                <div class="detail-row paid-date-row">
-                    <span>Paid On:</span>
-                    <strong class="paid-date">${paidDate}</strong>
-                </div>
-            `;
+             const paymentDateTime = new Date(bill.payment_date);
+             if (!isNaN(paymentDateTime.getTime())) {
+                 const paidDate = paymentDateTime.toLocaleDateString();
+                 paymentDateRow = `
+                     <div class="detail-row paid-date-row">
+                         <span>Paid On:</span>
+                         <strong class="paid-date">${paidDate}</strong>
+                     </div>
+                 `;
+            }
         }
+        
+        let actionButtonsHtml = '';
+        let billIsGenerated = bill.bill_generated == 1;
+
+        if (billIsGenerated) {
+            actionButtonsHtml += `<button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}">View Bill Details</button>`;
+            
+            if (showReviseButton) {
+                actionButtonsHtml += `
+                    <button class="action-btn primary-btn revise-action-btn" data-bill-id="${bill.bill_id}">
+                        ${buttonText}
+                    </button>
+                `;
+            }
+        } else actionButtonsHtml = `<span>Bill Pending Generation</span>`;
 
         const billCard = document.createElement('div');
         billCard.className = 'ui-card dark-card bill-item-card'; 
@@ -987,27 +882,25 @@ function renderAnnaBillUI(requests) {
                         <span class="due-date">${due_date}</span>
                     </div>
                     
-                    ${paymentDateRow} </div>
-                    ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
+                    ${paymentDateRow} 
+                </div> 
+                ${bill.note ? `<p class="bill-note">Note: ${bill.note}</p>` : ''}
             </div>
 
             <div class="card-actions action-group"> 
-                <button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}">View Bill</button>
-                
-                ${showReviseButton ? `
-                    <button class="action-btn primary-btn revise-action-btn" data-bill-id="${bill.bill_id}">
-                        ${buttonText}
-                    </button>
-                ` : ''}
+                ${actionButtonsHtml}
             </div>
         `;
 
-        billCard.querySelector('.view-bill-btn')
-        .addEventListener('click', () => viewServiceBill(bill.request_id));
+        // Attach event listeners only if the bill exists
+        if (billIsGenerated) {
+            billCard.querySelector('.view-bill-btn')
+            .addEventListener('click', () => viewServiceBill(bill.request_id));
 
-        if (showReviseButton) {
-            billCard.querySelector('.revise-action-btn')
-            .addEventListener('click', () => reviseBill(bill.request_id));
+            if (showReviseButton) {
+                billCard.querySelector('.revise-action-btn')
+                .addEventListener('click', () => reviseBill(bill.request_id));
+            }
         }
 
         container.appendChild(billCard);
@@ -1316,9 +1209,21 @@ function renderClientQuotes(requests) {
 
     activeQuotes.forEach(request => {
         const isActionNeeded = request.quote_status === 'quoted' || request.quote_status === 'countered';
+        const isAccepted = request.quote_status === 'accepted';
         
         const statusClass = isActionNeeded ? 'status-tag-pending' : 'status-tag-paid'; 
         const statusText = isActionNeeded ? request.quote_status.toUpperCase() : 'ACCEPTED';
+
+        let acceptDateRowHtml = '';
+        if (isAccepted && request.quote_accept_date) {
+            const formattedAcceptDate = new Date(request.quote_accept_date).toLocaleString();
+            acceptDateRowHtml = `
+                <div class="detail-row accepted-date-row">
+                    <span>Accept Date:</span>
+                    <span>${formattedAcceptDate}</span>
+                </div>
+            `;
+        }
         
         const item = document.createElement('div');
 
@@ -1363,6 +1268,7 @@ function renderClientQuotes(requests) {
                         <span>Response Date:</span>
                         <span>${new Date(request.response_date).toLocaleString()}</span>
                     </div>
+                    </div>${acceptDateRowHtml}</div>
                 </div>
                 ${request.quote_note ? `<p class="quote-note"><strong>Note from Anna:</strong> ${request.quote_note}</p>` : ''}
             </div>
@@ -1388,7 +1294,7 @@ function renderClientBills(requestsData) {
         .filter(request => request.bills && request.bills.length > 0)
         .flatMap(request => request.bills.map(bill => ({
             ...bill,
-            requestId: request.request_id // Attach the parent request ID
+            requestId: request.request_id // Attach the parent request ID and name it requestId
         })));
 
     const container = document.getElementById('client-bills-list');
@@ -1448,7 +1354,9 @@ function renderClientBills(requestsData) {
             <div class="card-actions action-group">
                 ${isUnpaid ? 
                     `<button onclick="openPayForm(${bill.bill_id})" class="action-btn primary-btn">Pay Now</button>
-                     <button onclick="disputeBill(${bill.bill_id})" class="action-btn secondary-btn">Dispute</button>` 
+                     <button onclick="disputeBill(${bill.bill_id})" class="action-btn secondary-btn">Dispute</button>
+                     <button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}" data-request-id="${bill.requestId}">
+                        View Service Bill</button>`
                     : 
                     `<button class="action-btn secondary-btn view-bill-btn" data-bill-id="${bill.bill_id}" data-request-id="${bill.requestId}">
                         View Service Bill</button>`
@@ -1456,10 +1364,9 @@ function renderClientBills(requestsData) {
             </div>
         `;
         
-        if (!isUnpaid) {
-             item.querySelector('.view-bill-btn')
-                 .addEventListener('click', () => viewServiceBill(bill.requestId));
-        }
+        item.querySelector('.view-bill-btn')
+            .addEventListener('click', () => viewServiceBill(bill.requestId, bill.bill_id));
+
 
         container.appendChild(item);
     });
@@ -1677,6 +1584,23 @@ async function payBill(billId) {
     }
 }
 
+async function generateServiceBill(requestId) {
+    try {
+        const response = await fetch(`http://localhost:5050/generateServiceBill/${requestId}`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert("Failed to generate service bill: " + (data.error || 'Unknown error'));
+        } else { 
+            alert(`Generated Bill for Request: ${requestId}`);
+            loadAnnaDashboardData(); 
+        }
+    } catch (err) {
+        console.error("Error generating bill:", err);
+        alert(`Error generating bill: ${err.message}`);
+    }
+}
+
 // Function to process a service request order corresponding to a service request
 async function viewServiceOrder(requestId) {
   try {
@@ -1703,6 +1627,17 @@ async function viewServiceOrder(requestId) {
 
     const user_req = user_data.request;
 
+    // Fetch the quote details
+    const get_quote_response = await fetch(`http://localhost:5050/getQuote/${requestId}`);
+    const quote_data = await get_quote_response.json();
+
+    if (!quote_data.success) {
+      alert("Failed to load quote details");
+      return;
+    }
+
+    const quote_req = quote_data.request;
+
     // Fetch quote history for a request id
     const quoteHistoryRes = await fetch(`http://localhost:5050/getQuoteHistory/${requestId}`);
     const quoteHistoryData = await quoteHistoryRes.json();
@@ -1718,7 +1653,7 @@ async function viewServiceOrder(requestId) {
     orderTemplate = orderTemplate
       .replace("{{generated_date}}", new Date().toLocaleDateString())
       .replace("{{request_id}}", service_req.request_id)
-      .replace("{{agreement_date}}", new Date(service_req.quote_accept_date).toLocaleString())
+      .replace("{{agreement_date}}", new Date(quote_req.quote_accept_date).toLocaleString())
       .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`) // There's 2 instances of {{client_name}}, so replaceAll is needed
       .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
       .replace("{{client_phone}}", user_req.phone)
@@ -1742,7 +1677,7 @@ async function viewServiceOrder(requestId) {
 }
 
 // Function to process a service bill corresponding to a service request
-async function viewServiceBill(requestId) {
+async function viewServiceBill(requestId, billId) {
   try {
     const get_service_response = await fetch(`http://localhost:5050/getRequest/${requestId}`);
     const service_request_data = await get_service_response.json();
@@ -1766,7 +1701,7 @@ async function viewServiceBill(requestId) {
     const user_req = user_data.request;
 
     // Fetch bill data
-    const billRes = await fetch(`http://localhost:5050/getBill/${requestId}`);
+    const billRes = await fetch(`http://localhost:5050/getBill/${billId}`);
     const billData = await billRes.json();
 
     if (!billData.success) {
@@ -1777,7 +1712,7 @@ async function viewServiceBill(requestId) {
     const service_bill = billData.request;
 
     // Fetch Bill History
-    const historyRes = await fetch(`http://localhost:5050/getBillHistory/${service_bill.bill_id}`);
+    const historyRes = await fetch(`http://localhost:5050/getBillHistory/${billId}`);
     const historyData = await historyRes.json();
 
     let historyHTML = "";
@@ -1790,12 +1725,12 @@ async function viewServiceBill(requestId) {
     // Write bill data to the bill template
     billTemplate = billTemplate
       .replace("{{generated_date}}", new Date().toLocaleDateString())
-      .replace("{{bill_id}}", service_bill.bill_id)
+      .replace("{{bill_id}}", billId)
       .replace("{{request_id}}", service_bill.request_id)
       .replace("{{bill_status}}", service_bill.bill_status)
       .replace("{{bill_amount}}", `$${Number(service_bill.bill_amount).toFixed(2)}`)
       .replace("{{due_date}}", new Date(service_bill.due_date).toLocaleDateString())
-      .replace("{{payment_date}}", service_bill.payment_date || "Not Paid")
+      .replace("{{payment_date}}", new Date (service_bill.payment_date).toLocaleDateString() || "Not Paid")
       .replaceAll("{{client_name}}", `${user_req.first_name} ${user_req.last_name}`)
       .replace("{{client_address}}", `${user_req.address_street}, ${user_req.address_city}, ${user_req.address_state} ${user_req.address_zip}`)
       .replace("{{client_phone}}", user_req.phone)
