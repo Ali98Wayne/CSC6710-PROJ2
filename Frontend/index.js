@@ -469,9 +469,6 @@ document.addEventListener("DOMContentLoaded", function() {
             } else alert("Error: " + (data.error || "Unknown error"));
         })
         .catch(err => console.error("Request Service Error:", err));
-            // ROUTES: QUOTE & NEGOTIATION
-
-
     });
 });
 
