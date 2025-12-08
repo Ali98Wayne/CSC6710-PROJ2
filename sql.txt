@@ -77,7 +77,7 @@ CREATE TABLE Quote_History (
     quote_price DECIMAL(10,2) NULL,
     scheduled_start DATETIME NULL,
     scheduled_end DATETIME NULL,
-    status ENUM('pending','accepted','rejected','countered','canceled'),
+    status ENUM('pending','quoted',accepted','rejected','countered','canceled'),
     note TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_quote_id FOREIGN KEY (quote_id) REFERENCES Quotes(quote_id),

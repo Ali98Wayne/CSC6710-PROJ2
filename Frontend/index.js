@@ -1259,8 +1259,13 @@ function renderClientQuotes(requests) {
         const isActionNeeded = request.quote_status === 'quoted' || request.quote_status === 'countered';
         const isAccepted = request.quote_status === 'accepted';
         
-        const statusClass = isActionNeeded ? 'status-tag-pending' : 'status-tag-paid'; 
-        const statusText = isActionNeeded ? request.quote_status.toUpperCase() : 'ACCEPTED';
+        let statusClass;
+        if (request.quote_status === 'quoted') statusClass = 'status-tag-quoted';
+        else if (request.quote_status === 'countered') statusClass = 'status-tag-countered';
+        else if (request.quote_status === 'accepted') statusClass = 'status-tag-accepted';
+        else statusClass = 'status-tag-default';
+
+        const statusText = request.quote_status.toUpperCase();
 
         let acceptDateRowHtml = '';
         if (isAccepted && request.quote_accept_date) {

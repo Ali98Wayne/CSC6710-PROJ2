@@ -476,8 +476,8 @@ class DbService{
             const quoteId = await new Promise((resolve, reject) => {
                 const query = `
                     INSERT INTO Quotes 
-                    (request_id, client_id, quote_price, scheduled_start, scheduled_end, note, status, responder_type)
-                    VALUES (?, ?, ?, ?, ?, ?, 'quoted', 'Anna') 
+                    (request_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, note, status)
+                    VALUES (?, ?, 'Anna', ?, ?, ?, ?, 'quoted') 
                 `;
                 connection.query(query, [requestId, clientId, quotePrice, start, end, note], 
                     (err, res) => {
@@ -490,7 +490,7 @@ class DbService{
             await new Promise((resolve, reject) => {
                 const historyQuery = `
                     INSERT INTO Quote_History (quote_id, client_id, responder_type, quote_price, scheduled_start, scheduled_end, status, note)
-                    VALUES (?, ?, 'Anna', ?, ?, ?, 'quoted', ?);
+                    VALUES (?, ?, 'Anna', ?, ?, ?, 'quoted', ?)
                 `;
                 connection.query(historyQuery, [quoteId, clientId, quotePrice, start, end, note], (err, res) => {
                     if (err) reject(err);

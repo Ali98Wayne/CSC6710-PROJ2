@@ -215,10 +215,10 @@ app.post('/rejectRequest', async (req, res) => {
 
 // Anna responds to a request with a quote or rejection
 app.post('/addQuote', async (req, res) => {
-    const { requestId, quotePrice, scheduledStart, scheduledEnd, note, status } = req.body;
+    const { requestId, quotePrice, scheduledStart, scheduledEnd, note } = req.body;
     const db = dbService.getDbServiceInstance();
     try {
-        const result = await db.submitQuote(requestId, quotePrice, scheduledStart, scheduledEnd, note, status);
+        const result = await db.submitQuote(requestId, quotePrice, scheduledStart, scheduledEnd, note);
         res.json({ success: true, result });
     } catch(err) { 
         res.json({ success: false, error: err.message }); 
